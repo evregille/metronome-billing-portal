@@ -1,0 +1,19 @@
+{
+  "customers": [
+    {
+      "id": "customer_1",
+      "name": "Tech Company",
+      "metronome_customer_id": "a7088b51-ad31-40c4-8e89-2c768d0465b2"
+    },
+    {
+      "id": "customer_2", 
+      "name": "ABC 123",
+      "metronome_customer_id": "ce551a38-a08c-4808-b54c-eddebd3121fb"
+    },
+    {
+      "id": "customer_3",
+      "name": "Functional Finance",
+      "metronome_customer_id": "9bfe4e26-eb0a-47bd-92ba-fea2bf3c0aff"
+    }
+  ]
+}
