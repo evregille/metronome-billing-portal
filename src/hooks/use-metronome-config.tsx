@@ -9,9 +9,11 @@ import React, {
 } from "react";
 import {
   createCustomerSpendAlert,
+  createCustomerBalanceAlert,
+  deleteCustomerAlert,
   createMetronomeEmbeddableLink,
   fetchCurrentSpendDraftInvoice,
-  fetchCustomerSpendAlerts,
+  fetchCustomerAlerts,
   fetchMetronomeCustomerBalance,
   fetchMetronomeInvoiceBreakdown,
 } from "@/actions/metronome";
@@ -19,7 +21,6 @@ import {
 // Types based on the backend API
 interface MetronomeConfig {
   customer_id: string;
-  chart_type: "BarChart" | "LineChart" | "PieChart";
 }
 
 interface Balance {
@@ -58,6 +59,24 @@ interface CurrentSpend {
   productTotals: Record<string, number>;
 }
 
+interface AlertData {
+  id?: string;
+  customer_status: string | null;
+  alert: {
+    id: string;
+    type: string;
+    name: string;
+    threshold?: number;
+    enabled?: boolean;
+    status?: string;
+  };
+}
+
+interface AlertsResult {
+  balanceAlert: AlertData | null;
+  spendAlert: AlertData | null;
+}
+
 interface LoadingStates {
   balance: boolean;
   costs: boolean;
@@ -73,7 +92,7 @@ interface MetronomeContextType {
   costs: BreakdownData | null;
   usage: BreakdownData | null;
   currentSpend: CurrentSpend | null;
-  alerts: any[];
+  alerts: AlertsResult | null;
   invoiceEmbeddableUrl: string | null;
   commitsEmbeddableUrl: string | null;
   loadingStates: LoadingStates;
@@ -84,7 +103,9 @@ interface MetronomeContextType {
   fetchAlerts: () => Promise<void>;
   fetchInvoiceEmbeddable: () => Promise<void>;
   fetchCommitsEmbeddable: () => Promise<void>;
-  createAlert: (alertData: any) => Promise<void>;
+  createSpendAlert: (threshold: number) => Promise<void>;
+  createBalanceAlert: (threshold: number) => Promise<void>;
+  deleteAlert: (alertId: string) => Promise<void>;
 }
 
 const MetronomeContext = createContext<MetronomeContextType | undefined>(undefined);
@@ -100,14 +121,13 @@ export function MetronomeProvider({
 }) {
   const [config, setConfig] = useState<MetronomeConfig>({
     customer_id: customerId,
-    chart_type: "BarChart",
   });
 
   const [balance, setBalance] = useState<Balance | null>(null);
   const [costs, setCosts] = useState<BreakdownData | null>(null);
   const [usage, setUsage] = useState<BreakdownData | null>(null);
   const [currentSpend, setCurrentSpend] = useState<CurrentSpend | null>(null);
-  const [alerts, setAlerts] = useState<any[]>([]);
+  const [alerts, setAlerts] = useState<AlertsResult | null>(null);
   const [invoiceEmbeddableUrl, setInvoiceEmbeddableUrl] = useState<string | null>(null);
   const [commitsEmbeddableUrl, setCommitsEmbeddableUrl] = useState<string | null>(null);
 
@@ -128,17 +148,16 @@ export function MetronomeProvider({
       setCosts(null);
       setUsage(null);
       setCurrentSpend(null);
-      setAlerts([]);
+      setAlerts(null);
       setInvoiceEmbeddableUrl(null);
       setCommitsEmbeddableUrl(null);
       
       // Update config with new object to trigger re-renders
       setConfig({
         customer_id: customerId,
-        chart_type: config.chart_type,
       });
     }
-  }, [customerId, config.customer_id, config.chart_type]);
+  }, [customerId, config.customer_id]);
 
   const fetchBalance = useCallback(async () => {
     if (!config.customer_id) return;
@@ -231,7 +250,7 @@ export function MetronomeProvider({
 
     setLoadingStates(prev => ({ ...prev, alerts: true }));
     try {
-      const response = await fetchCustomerSpendAlerts(
+      const response = await fetchCustomerAlerts(
         config.customer_id,
         apiKey, // This can be undefined, and backend will use env var
       );
@@ -294,13 +313,13 @@ export function MetronomeProvider({
     }
   }, [config.customer_id, apiKey]);
 
-  const createAlert = useCallback(async (alertData: any) => {
+  const createSpendAlert = useCallback(async (threshold: number) => {
     if (!config.customer_id) return;
 
     try {
       const response = await createCustomerSpendAlert(
         config.customer_id,
-        alertData,
+        threshold,
         apiKey, // This can be undefined, and backend will use env var
       );
 
@@ -308,12 +327,53 @@ export function MetronomeProvider({
         // Refresh alerts after creating a new one
         await fetchAlerts();
       } else {
-        console.error("Failed to create alert:", response.message);
+        console.error("Failed to create spend alert:", response.message);
       }
     } catch (error) {
-      console.error("Error creating alert:", error);
+      console.error("Error creating spend alert:", error);
     }
   }, [config.customer_id, apiKey, fetchAlerts]);
+
+  const createBalanceAlert = useCallback(async (threshold: number) => {
+    if (!config.customer_id) return;
+
+    try {
+      const response = await createCustomerBalanceAlert(
+        config.customer_id,
+        threshold,
+        apiKey, // This can be undefined, and backend will use env var
+      );
+
+      if (response.status === "success") {
+        // Refresh alerts after creating a new one
+        await fetchAlerts();
+      } else {
+        console.error("Failed to create balance alert:", response.message);
+      }
+    } catch (error) {
+      console.error("Error creating balance alert:", error);
+    }
+  }, [config.customer_id, apiKey, fetchAlerts]);
+
+
+  const deleteAlert = useCallback(async (alertId: string) => {
+    try {
+      
+      const response = await deleteCustomerAlert(
+        alertId,
+        apiKey, // This can be undefined, and backend will use env var
+      );
+
+      if (response.status === "success") {
+        // Refresh alerts after deleting
+        await fetchAlerts();
+      } else {
+        console.error("Failed to delete alert:", response.message);
+      }
+    } catch (error) {
+      console.error("Error deleting alert:", error);
+    }
+  }, [apiKey, fetchAlerts]);
 
   const value: MetronomeContextType = {
     config,
@@ -332,7 +392,9 @@ export function MetronomeProvider({
     fetchAlerts,
     fetchInvoiceEmbeddable,
     fetchCommitsEmbeddable,
-    createAlert,
+    createSpendAlert,
+    createBalanceAlert,
+    deleteAlert,
   };
 
   return (

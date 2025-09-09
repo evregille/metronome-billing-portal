@@ -3,21 +3,42 @@
 import { useEffect, useState } from "react";
 import { useMetronome } from "@/hooks/use-metronome-config";
 import { formatCurrency } from "@/lib/utils";
-import { DollarSign, TrendingUp, Package, Target, Bell } from "lucide-react";
+import { DollarSign, TrendingUp, Package, Target, Bell, Edit, Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
 export function Spend() {
-  const { currentSpend, fetchCurrentSpend } = useMetronome();
+  const { 
+    currentSpend, 
+    alerts,
+    fetchCurrentSpend, 
+    fetchAlerts,
+    createSpendAlert,
+    deleteAlert
+  } = useMetronome();
+  
   const [budgetAmount, setBudgetAmount] = useState("5000");
+  const [isEditingAlert, setIsEditingAlert] = useState(false);
+  const [alertThreshold, setAlertThreshold] = useState(1000);
+  const [alertEnabled, setAlertEnabled] = useState(true);
 
   useEffect(() => {
     (async () => {
       await fetchCurrentSpend();
+      await fetchAlerts();
     })();
-  }, [fetchCurrentSpend]);
+  }, [fetchCurrentSpend, fetchAlerts]);
+
+  // Initialize alert form when spend alert exists
+  useEffect(() => {
+    if (alerts?.spendAlert) {
+      setAlertThreshold(alerts.spendAlert.alert.threshold || 1000);
+      setAlertEnabled(alerts.spendAlert.alert.enabled || false);
+      setIsEditingAlert(false);
+    }
+  }, [alerts?.spendAlert]);
 
   const totalSpend = currentSpend?.total || 0;
   const productCount = currentSpend?.productTotals ? Object.keys(currentSpend.productTotals).length : 0;
@@ -47,6 +68,37 @@ export function Spend() {
     '#ec4899', // Pink
     '#6366f1', // Indigo
   ];
+
+  const handleCreateAlert = async () => {
+    await createSpendAlert(alertThreshold);
+    setIsEditingAlert(false);
+  };
+
+  const handleDeleteAlert = async () => {
+    if (alerts?.spendAlert) {
+      await deleteAlert(alerts.spendAlert.alert.id);
+    }
+  };
+
+  const getAlertStatusColor = (status?: string | null) => {
+    switch (status) {
+      case 'ok': return 'text-green-600 bg-green-100';
+      case 'in_alarm': return 'text-red-600 bg-red-100';
+      case 'evaluating': return 'text-gray-600 bg-gray-100';
+      default: return 'text-blue-600 bg-blue-100';
+    }
+  };
+
+  const getAlertStatusText = (status?: string | null) => {
+    switch (status) {
+      case 'ok': return 'OK';
+      case 'in_alarm': return 'Triggered';
+      case 'evaluating': return 'Evaluating';
+      default: return 'Unknown';
+    }
+  };
+
+  console.log(alerts);
 
   return (
     <div className="glass-card card-hover rounded-2xl p-6">
@@ -114,57 +166,121 @@ export function Spend() {
         </div>
       )}
 
-      {/* Budget & Alerts Section */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-gray-900">Budget & Alerts</h3>
-        
-        {/* Monthly Budget Card */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h4 className="text-base font-semibold text-gray-900">Monthly Budget</h4>
-              <p className="text-sm text-gray-600">Set a spending limit for this month</p>
-            </div>
-            <Switch />
-          </div>
-          
-          <div className="flex items-center space-x-3">
-            <Input
-              type="number"
-              value={budgetAmount}
-              onChange={(e) => setBudgetAmount(e.target.value)}
-              className="flex-1"
-              placeholder="5000"
-            />
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-              Set Budget
-            </Button>
-          </div>
-        </div>
 
-        {/* Spend Alerts Card */}
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <div className="flex items-center space-x-2 mb-4">
-            <Bell className="w-4 h-4 text-gray-600" />
-            <h4 className="text-base font-semibold text-gray-900">Spend Alerts</h4>
+
+        {/* Spend Alerts Configuration - Updated to match Balance style */}
+        <div className="border-t border-gray-200 pt-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-2">
+              <Bell className="w-4 h-4 text-gray-600" />
+              <h4 className="text-sm font-semibold text-gray-900">Budget</h4>
+            </div>
+            {alerts?.spendAlert && (
+              <div className="flex items-center space-x-2">
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getAlertStatusColor(alerts.spendAlert.customer_status)}`}>
+                  {getAlertStatusText(alerts.spendAlert.customer_status)}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDeleteAlert}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </Button>
+              </div>
+            )}
           </div>
           
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-700">Alert at 75% of budget</span>
-              <Switch defaultChecked />
+          {alerts?.spendAlert ? (
+            // Show existing alert
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h5 className="font-medium text-gray-900">Budget</h5>
+                  <p className="text-sm text-gray-600">We will notify you if your spending reaches {formatCurrency(alerts.spendAlert.alert.threshold || 0)}</p>
+                </div>
+              </div>
+              
+              {isEditingAlert && (
+                <div className="space-y-3 pt-3 border-t border-blue-200">
+                  <div className="flex items-center space-x-3">
+                    <Label htmlFor="spend-threshold" className="text-sm text-gray-600">
+                      Alert when spending reaches:
+                    </Label>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-500">$</span>
+                      <Input
+                        id="spend-threshold"
+                        type="number"
+                        value={alertThreshold}
+                        onChange={(e) => setAlertThreshold(Number(e.target.value))}
+                        className="w-24 h-8 text-sm"
+                        min="0"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button size="sm" onClick={handleCreateAlert}>
+                      Save Changes
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setIsEditingAlert(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-700">Alert at 90% of budget</span>
-              <Switch defaultChecked />
+          ) : (
+            // Show create alert form
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h5 className="font-medium text-gray-900">Control your spending</h5>
+                  <p className="text-sm text-gray-600">Receive a notification when your spending reaches a threshold</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditingAlert(!isEditingAlert)}
+                >
+                  <Plus className="w-3 h-3 mr-1" />
+                  Set Budget
+                </Button>
+              </div>
+              
+              {isEditingAlert && (
+                <div className="space-y-3 pt-3 border-t border-gray-200">
+                  <div className="flex items-center space-x-3">
+                    <Label htmlFor="spend-threshold" className="text-sm text-gray-600">
+                      Alert when spending reaches:
+                    </Label>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-500">$</span>
+                      <Input
+                        id="spend-threshold"
+                        type="number"
+                        value={alertThreshold}
+                        onChange={(e) => setAlertThreshold(Number(e.target.value))}
+                        className="w-24 h-8 text-sm"
+                        min="0"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button size="sm" onClick={handleCreateAlert}>
+                      Create Alert
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setIsEditingAlert(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-700">Alert at 100% of budget</span>
-              <Switch />
-            </div>
-          </div>
+          )}
         </div>
-      </div>
+      
     </div>
   );
 }

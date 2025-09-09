@@ -3,6 +3,8 @@
 import Metronome from "@metronome/sdk/index.mjs";
 
 const CUSTOM_SPEND_THRESHOLD_ALERT_NAME = "CUSTOM_SPEND_THRESHOLD_ALERT";
+const CUSTOM_BALANCE_ALERT_NAME = "CUSTOM_BALANCE_ALERT";
+
 const DARK_THEME_COLORS = {
   // Main background colors
   Gray_dark: "#0a0a0a", // Very dark background
@@ -78,6 +80,24 @@ type InvoiceListBreakdownsResponse = {
   line_items: Array<any>;
   total: number;
   breakdown_start_timestamp: string;
+};
+
+type AlertData = {
+  id?: string;
+  customer_status: string | null;
+  alert: {
+    id: string;
+    type: string;
+    name: string;
+    threshold?: number;
+    enabled?: boolean;
+    status?: string;
+  };
+};
+
+type AlertsResult = {
+  balanceAlert: AlertData | null;
+  spendAlert: AlertData | null;
 };
 
 /**
@@ -233,6 +253,108 @@ export async function fetchMetronomeInvoiceBreakdown(
   }
 }
 
+export async function fetchCustomerAlerts(
+  customer_id: string,
+  api_key?: string,
+): Promise<ApiResponse<AlertsResult>> {
+  try {
+    const client = getMetronomeClient(api_key);
+    const response = await client.v1.customers.alerts.list({
+      customer_id: customer_id,
+    });
+
+    // Find balance alert (low_remaining_contract_credit_and_commit_balance_reached)
+    const balanceAlert = response.data.find(
+      (a) => a.alert.type === "low_remaining_contract_credit_and_commit_balance_reached"
+    ) || null;
+
+    // Find spend alert (spend_threshold_reached)
+    const spendAlert = response.data.find(
+      (a) => a.alert.type === "spend_threshold_reached"
+    ) || null;
+
+    return {
+      status: "success",
+      result: {
+        balanceAlert,
+        spendAlert,
+      },
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+export async function createCustomerSpendAlert(
+  customer_id: string,
+  threshold: number,
+  api_key?: string,
+): Promise<ApiResponse<any>> {
+  try {
+    const client = getMetronomeClient(api_key);
+    const response = await client.v1.alerts.create({
+      customer_id: customer_id,
+      alert_type: "spend_threshold_reached",
+      name: CUSTOM_SPEND_THRESHOLD_ALERT_NAME,
+      evaluate_on_create: true,
+      threshold: threshold*100,
+      credit_type_id: '2714e483-4ff1-48e4-9e25-ac732e8f24f2' // USD
+    });
+    return { status: "success", result: response.data };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+export async function createCustomerBalanceAlert(
+  customer_id: string,
+  threshold: number,
+  api_key?: string,
+): Promise<ApiResponse<any>> {
+  try {
+    const client = getMetronomeClient(api_key);
+    const response = await client.v1.alerts.create({
+      customer_id: customer_id,
+      alert_type: "low_remaining_contract_credit_and_commit_balance_reached",
+      name: CUSTOM_BALANCE_ALERT_NAME,
+      evaluate_on_create: true,
+      threshold: threshold*100,
+      credit_type_id: '2714e483-4ff1-48e4-9e25-ac732e8f24f2' // USD
+    });
+    return { status: "success", result: response.data };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+export async function deleteCustomerAlert(
+  alert_id: string,
+  api_key?: string,
+): Promise<ApiResponse<any>> {
+  try {
+    const client = getMetronomeClient(api_key);
+    await client.v1.alerts.archive({
+      id: alert_id,
+    });
+    return { status: "success", result: null };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+// Legacy function - keeping for backward compatibility
 export async function fetchCustomerSpendAlerts(
   customer_id: string,
   api_key?: string,
@@ -248,29 +370,6 @@ export async function fetchCustomerSpendAlerts(
         a.alert.type === "spend_threshold_reached" &&
         a.alert.name === CUSTOM_SPEND_THRESHOLD_ALERT_NAME,
     );
-  } catch (error) {
-    return {
-      status: "error",
-      message: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
-}
-
-export async function createCustomerSpendAlert(
-  customer_id: string,
-  threshold: number,
-  api_key?: string,
-): Promise<any> {
-  try {
-    const client = getMetronomeClient(api_key);
-    await client.v1.alerts.create({
-      customer_id: customer_id,
-      alert_type: "spend_threshold_reached",
-      name: CUSTOM_SPEND_THRESHOLD_ALERT_NAME,
-      evaluate_on_create: true,
-      threshold: threshold,
-    });
-    return { status: "success" };
   } catch (error) {
     return {
       status: "error",
