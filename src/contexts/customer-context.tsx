@@ -39,7 +39,7 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
             id: customer.id,
             name: customer.name,
             metronome_customer_id: customer.id,
-            description: customer.description || `Customer: ${customer.name}`
+            // description: customer.description || `Customer: ${customer.id}`
           }));
           
           setCustomers(metronomeCustomers);

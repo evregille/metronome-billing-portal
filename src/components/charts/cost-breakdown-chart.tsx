@@ -101,10 +101,6 @@ export function CostBreakdownChart() {
 
   // Process chart data based on selected filters
   useEffect(() => {
-    console.log("Cost breakdown - costs data:", costs);
-    console.log("Cost breakdown - costs.items:", costs?.items);
-    console.log("Cost breakdown - selected filters:", { selectedProduct, selectedProperty });
-    console.log("Cost breakdown - dimensions:", dimensions);
     
     if (costs?.items && selectedProduct && selectedProperty && dimensions.length > 0) {
       const data = costs.items.map((item: any) => {
@@ -128,10 +124,10 @@ export function CostBreakdownChart() {
         return chartItem;
       });
       
-      console.log("Cost breakdown - processed chart data:", data);
+      // console.log("Cost breakdown - processed chart data:", data);
       setChartData(data);
     } else {
-      console.log("Cost breakdown - no items found or filters not selected");
+      // console.log("Cost breakdown - no items found or filters not selected");
       setChartData([]);
     }
   }, [costs, selectedProduct, selectedProperty, dimensions]);

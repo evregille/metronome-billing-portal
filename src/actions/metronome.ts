@@ -1,6 +1,6 @@
 "use server";
 
-import Metronome from "@metronome/sdk";
+import Metronome from "@metronome/sdk/index.mjs";
 
 const CUSTOM_SPEND_THRESHOLD_ALERT_NAME = "CUSTOM_SPEND_THRESHOLD_ALERT";
 const DARK_THEME_COLORS = {
@@ -144,7 +144,6 @@ export async function fetchMetronomeCustomerBalance(
 
     let total_granted = 0;
     let total_used = 0;
-    console.log(response.data);
     const processed_grants = response.data.map((grant) => {
       // Calculate total granted for this item
       const granted = grant.access_schedule?.schedule_items

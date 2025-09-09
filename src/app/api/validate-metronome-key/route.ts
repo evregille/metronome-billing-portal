@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import Metronome from "@metronome/sdk";
+import Metronome from "@metronome/sdk/index.mjs";
 
 export async function POST(request: NextRequest) {
   try {
