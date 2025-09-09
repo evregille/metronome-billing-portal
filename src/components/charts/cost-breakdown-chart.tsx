@@ -33,10 +33,6 @@ export function CostBreakdownChart() {
     '#f59e0b', // Amber
     '#ef4444', // Red
     '#8b5cf6', // Purple
-    '#06b6d4', // Cyan
-    '#84cc16', // Lime
-    '#f97316', // Orange
-    '#ec4899', // Pink
     '#6366f1', // Indigo
   ];
 
@@ -45,6 +41,15 @@ export function CostBreakdownChart() {
       await fetchCosts();
     })();
   }, [fetchCosts]);
+
+  // Reset filter selections when costs data changes (e.g., customer change)
+  useEffect(() => {
+    if (costs?.products) {
+      // Reset selections when costs data changes
+      setSelectedProduct("");
+      setSelectedProperty("");
+    }
+  }, [costs]);
 
   // Process available products and properties from costs data
   useEffect(() => {

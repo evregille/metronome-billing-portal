@@ -1,221 +1,283 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useMetronome } from "@/hooks/use-metronome-config";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/utils";
-import { Wallet, Phone, MessageCircle, Package, CheckCircle } from "lucide-react";
+import { Wallet, Phone, MessageCircle, Package, CheckCircle, ExternalLink, Loader2, Bell, Target } from "lucide-react";
 
 export function Balance() {
-  const { config, balance, fetchBalance } = useMetronome();
+  const { config, balance, fetchBalance, fetchCommitsEmbeddable, commitsEmbeddableUrl, loadingStates } = useMetronome();
+  const [showEmbeddable, setShowEmbeddable] = useState(false);
 
   useEffect(() => {
     (async () => {
       await fetchBalance();
     })();
   }, [config, fetchBalance]);
+
+  useEffect(() => {
+    if (showEmbeddable) {
+      (async () => {
+        await fetchCommitsEmbeddable();
+      })();
+    }
+  }, [showEmbeddable, config, fetchCommitsEmbeddable]);
+
   // Calculate percentage of balance used
   const calculateUsagePercentage = () => {
     if (!balance) return 0;
     const percentage = (balance.total_used / balance.total_granted) * 100;
-    return Math.min(100, Math.max(0, percentage));
+    return Math.min(percentage, 100);
   };
 
-  const usagePercentage = calculateUsagePercentage();
-  const isApproachingLimit = usagePercentage > 75;
-  const isAtLimit = usagePercentage >= 90;
-  const remainingBalance = balance ? balance.total_granted - balance.total_used : 0;
-  
-  // Simplified conditions - show contact sales if no balance data or balance is 0
-  const shouldShowContactSales = !balance || 
-                                balance.total_granted === 0 || 
-                                (balance.total_granted === 0 && balance.total_used === 0) ||
-                                !balance.processed_grants || 
-                                balance.processed_grants.length === 0;
-  
+  const getUsageColor = () => {
+    const percentage = calculateUsagePercentage();
+    if (percentage >= 90) return "text-red-600";
+    if (percentage >= 75) return "text-yellow-600";
+    return "text-green-600";
+  };
 
-  return (
-    <div className="glass-card card-hover rounded-2xl p-6">
-      {/* Header Row */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-3">
-          <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center">
-            <Wallet className="w-6 h-6 text-white" />
+  const getUsageBarColor = () => {
+    const percentage = calculateUsagePercentage();
+    if (percentage >= 90) return "bg-red-500";
+    if (percentage >= 75) return "bg-yellow-500";
+    return "bg-green-500";
+  };
+
+  if (showEmbeddable) {
+    return (
+      <div className="glass-card p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+              <Wallet className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Account Balance</h2>
+              <p className="text-sm text-gray-600">Commits & Credits Dashboard</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">Account Balance</h3>
-            <p className="text-sm text-gray-600">Available funds</p>
+          <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="embeddable-toggle"
+                checked={showEmbeddable}
+                onCheckedChange={setShowEmbeddable}
+              />
+              <Label htmlFor="embeddable-toggle" className="text-sm">
+                Show Embeddable
+              </Label>
+            </div>
           </div>
         </div>
-        <div className="text-right">
-          <div className="text-3xl font-bold text-gray-900">
-            ${formatCurrency(remainingBalance)}
+
+        <div className="space-y-4">
+          {loadingStates.commitsEmbeddable ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+              <span className="ml-2 text-gray-600">Loading commits dashboard...</span>
+            </div>
+          ) : commitsEmbeddableUrl ? (
+            <div className="w-full h-[600px] border border-gray-200 rounded-lg overflow-hidden">
+              <iframe
+                src={commitsEmbeddableUrl}
+                className="w-full h-full"
+                title="Commits & Credits Dashboard"
+                sandbox="allow-scripts allow-same-origin allow-forms"
+              />
+            </div>
+          ) : (
+            <div className="flex items-center justify-center py-12 text-gray-500">
+              <p>Failed to load commits dashboard</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="glass-card p-6">
+      {loadingStates.balance ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <span className="ml-3 text-gray-600">Loading balance...</span>
+        </div>
+      ) : balance ? (
+        <div className="space-y-6">
+          {/* Main Balance Display */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center">
+                <Wallet className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Account Balance</h3>
+                <p className="text-sm text-gray-600">Available funds</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-3xl font-bold text-gray-900">
+                {formatCurrency(balance.total_granted - balance.total_used)}
+              </div>
+              <div className="text-sm text-gray-600">remaining</div>
+            </div>
           </div>
-          <div className="text-sm text-gray-600">remaining</div>
+
+          {/* Overall Usage Section */}
+          {balance.total_granted > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-700">Overall Usage</span>
+                <span className={`text-sm font-semibold ${getUsageColor()}`}>
+                  {calculateUsagePercentage().toFixed(1)}%
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-3">
+                <div
+                  className={`h-3 rounded-full transition-all duration-300 ${getUsageBarColor()}`}
+                  style={{ width: `${calculateUsagePercentage()}%` }}
+                ></div>
+              </div>
+              <div className="flex justify-between text-sm text-gray-700">
+                <span>{formatCurrency(balance.total_used)} used</span>
+                <span>{formatCurrency(balance.total_granted)} total</span>
+              </div>
+            </div>
+          )}
+
+          {/* Commits Breakdown */}
+          <div className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <div className="w-5 h-5 bg-gray-600 rounded flex items-center justify-center">
+                <Package className="w-3 h-3 text-white" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Commits Breakdown</h3>
+            </div>
+            <div className="space-y-4">
+              {balance.processed_grants.map((grant, index) => {
+                const usagePercentage = grant.granted > 0 ? (grant.used / grant.granted) * 100 : 0;
+                const isFullyUsed = usagePercentage >= 100;
+                
+                return (
+                  <div key={grant.id} className="bg-white border border-gray-200 rounded-lg p-4">
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                          <CheckCircle className="w-4 h-4 text-white" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900">{grant.product_name}</p>
+                          <p className="text-sm text-gray-500">Type: {grant.type.toUpperCase()}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className={`text-lg font-semibold ${isFullyUsed ? 'text-green-500' : 'text-green-500'}`}>
+                          {formatCurrency(grant.remaining)} remaining
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Usage Section */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-700">Usage</span>
+                        <span className="text-sm font-semibold text-gray-900">
+                          {usagePercentage.toFixed(1)}%
+                        </span>
+                      </div>
+                      
+                      {/* Progress Bar */}
+                      <div className="w-full bg-gray-200 rounded-full h-3">
+                        <div
+                          className="bg-green-500 h-3 rounded-full transition-all duration-300"
+                          style={{ width: `${Math.min(usagePercentage, 100)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+
+                    {/* Financial Breakdown */}
+                    <div className="flex justify-between mt-3 pt-3 border-t border-gray-100">
+                      <div className="text-center">
+                        <p className="text-sm text-gray-500">Granted</p>
+                        <p className="font-semibold text-gray-900">{formatCurrency(grant.granted)}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm text-gray-500">Used</p>
+                        <p className="font-semibold text-gray-900">{formatCurrency(grant.used)}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm text-gray-500">Remaining</p>
+                        <p className={`font-semibold ${isFullyUsed ? 'text-green-500' : 'text-green-500'}`}>
+                          {formatCurrency(grant.remaining)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Budget Alerts Configuration */}
+          <div className="border-t border-gray-200 pt-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2">
+                <Bell className="w-4 h-4 text-gray-600" />
+                <h4 className="text-sm font-semibold text-gray-900">Balance Alerts</h4>
+              </div>
+              <Switch />
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex items-center space-x-3">
+                <Label htmlFor="balance-budget-threshold" className="text-sm text-gray-600 min-w-0">
+                  Alert when balance usage reaches:
+                </Label>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-500">%</span>
+                  <Input
+                    id="balance-budget-threshold"
+                    type="number"
+                    placeholder="80"
+                    className="w-20 h-8 text-sm"
+                    min="0"
+                    max="100"
+                  />
+                </div>
+              </div>
+              
+              
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center justify-center py-12 text-gray-500">
+          <p>No balance data available</p>
+        </div>
+      )}
+      <div className="border-t border-gray-200 pt-6 mt-6">
+
+     
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="embeddable-toggle"
+              checked={showEmbeddable}
+              onCheckedChange={setShowEmbeddable}
+            />
+            <Label htmlFor="embeddable-toggle" className="text-sm">
+              Show Embeddable
+            </Label>
+          </div>
         </div>
       </div>
 
-      {/* Contact Sales Message - Show this when there's no balance or balance is 0 */}
-      {shouldShowContactSales && (
-        <div className="space-y-4">
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 text-center">
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <MessageCircle className="w-8 h-8 text-white" />
-            </div>
-            <h4 className="text-lg font-semibold text-gray-900 mb-2">
-              No Account Balance
-            </h4>
-            <p className="text-gray-600 mb-4">
-              Your account doesn&apos;t have any balance set up yet. Contact our sales team to get started with your billing setup.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button 
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
-                onClick={() => window.open('mailto:sales@alpha-sense.com?subject=Account Setup - Billing Inquiry', '_blank')}
-              >
-                <Phone className="w-4 h-4 mr-2" />
-                Contact Sales
-              </Button>
-              <Button 
-                variant="outline"
-                onClick={() => window.open('https://www.alpha-sense.com/contact', '_blank')}
-              >
-                <MessageCircle className="w-4 h-4 mr-2" />
-                Get Support
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Overall Progress Section - Only show if there's a valid balance */}
-      {balance && balance.total_granted > 0 && (
-        <div className="space-y-4 mb-6">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-700">Overall Usage</span>
-            <span className="text-sm font-semibold text-gray-900">
-              {usagePercentage.toFixed(1)}%
-            </span>
-          </div>
-          
-          <div className="relative">
-            <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${
-                  isAtLimit
-                    ? "bg-gradient-to-r from-red-500 to-red-600"
-                    : isApproachingLimit
-                      ? "bg-gradient-to-r from-amber-500 to-orange-500"
-                      : "bg-gradient-to-r from-emerald-500 to-teal-500"
-                }`}
-                style={{ width: `${usagePercentage}%` }}
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-600">
-              ${formatCurrency(balance.total_used)} used
-            </span>
-            <span className="text-gray-600">
-              ${formatCurrency(balance.total_granted)} total
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Status and Action - Only show if there's a valid balance */}
-      {balance && balance.total_granted > 0 && (
-        <div className="mb-6 pt-6 border-t border-gray-200">
-          <div className="flex items-center justify-between">
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-gray-300 hover:bg-gray-50"
-            >
-              Set Alerts
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Commit Breakdown - Show when there are commits - Full row layout */}
-      {balance && balance.processed_grants && balance.processed_grants.length > 0 && (
-        <div className="border-t border-gray-200 pt-6">
-          <div className="flex items-center space-x-2 mb-4">
-            <Package className="w-4 h-4 text-gray-600" />
-            <h4 className="text-sm font-semibold text-gray-900">Commit Breakdown</h4>
-          </div>
-
-          <div className="space-y-4">
-            {balance.processed_grants.map((commit, index) => {
-              const commitUsagePercentage = commit.granted > 0 ? (commit.used / commit.granted) * 100 : 0;
-              const isCommitAtLimit = commitUsagePercentage >= 90;
-              const isCommitApproachingLimit = commitUsagePercentage > 75;
-              
-              return (
-                <div key={commit.id} className="bg-white/60 backdrop-blur-sm border border-white/30 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center">
-                        <CheckCircle className="w-4 h-4 text-white" />
-                      </div>
-                      <div>
-                        <h5 className="text-sm font-semibold text-gray-900">{commit.product_name}</h5>
-                        <p className="text-xs text-gray-600">Type: {commit.type}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-semibold text-gray-900">
-                        ${formatCurrency(commit.remaining)}
-                      </div>
-                      <div className="text-xs text-gray-600">remaining</div>
-                    </div>
-                  </div>
-
-                  {/* Progress Bar for this commit */}
-                  <div className="mb-3">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-gray-600">Usage</span>
-                      <span className="text-xs font-semibold text-gray-900">
-                        {commitUsagePercentage.toFixed(1)}%
-                      </span>
-                    </div>
-                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          isCommitAtLimit
-                            ? "bg-gradient-to-r from-emerald-500 to-teal-500"
-                            : isCommitApproachingLimit
-                              ? "bg-gradient-to-r from-emerald-500 to-teal-500"
-                              : "bg-gradient-to-r from-emerald-500 to-teal-500"
-                        }`}
-                        style={{ width: `${Math.min(100, Math.max(0, commitUsagePercentage))}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Financial Details */}
-                  <div className="grid grid-cols-3 gap-4 text-xs">
-                    <div className="text-center">
-                      <div className="font-semibold text-gray-900">${formatCurrency(commit.granted)}</div>
-                      <div className="text-gray-600">Granted</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-semibold text-gray-900">${formatCurrency(commit.used)}</div>
-                      <div className="text-gray-600">Used</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-semibold text-emerald-600">${formatCurrency(commit.remaining)}</div>
-                      <div className="text-gray-600">Remaining</div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

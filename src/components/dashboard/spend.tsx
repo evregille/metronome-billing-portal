@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useMetronome } from "@/hooks/use-metronome-config";
 import { formatCurrency } from "@/lib/utils";
 import { DollarSign, TrendingUp, Package, Target, Bell } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -12,6 +11,7 @@ import { Input } from "@/components/ui/input";
 
 export function Spend() {
   const { currentSpend, fetchCurrentSpend } = useMetronome();
+  const [budgetAmount, setBudgetAmount] = useState("5000");
 
   useEffect(() => {
     (async () => {
@@ -22,7 +22,7 @@ export function Spend() {
   const totalSpend = currentSpend?.total || 0;
   const productCount = currentSpend?.productTotals ? Object.keys(currentSpend.productTotals).length : 0;
 
-  // Prepare data for the chart
+  // Prepare data for horizontal stacked bar
   const chartData = currentSpend?.productTotals ? 
     Object.entries(currentSpend.productTotals).map(([productName, total]) => {
       const percentage = totalSpend > 0 ? (total / totalSpend) * 100 : 0;
@@ -48,24 +48,6 @@ export function Spend() {
     '#6366f1', // Indigo
   ];
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      return (
-        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-semibold text-gray-900">{data.name}</p>
-          <p className="text-blue-600">
-            <span className="font-medium">Amount:</span> {data.formattedValue}
-          </p>
-          <p className="text-gray-600">
-            <span className="font-medium">Percentage:</span> {data.percentage.toFixed(1)}%
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
-
   return (
     <div className="glass-card card-hover rounded-2xl p-6">
       <div className="flex items-center justify-between mb-6">
@@ -86,7 +68,7 @@ export function Spend() {
         </div>
       </div>
 
-      {/* Vertical Stacked Bar Chart */}
+      {/* Horizontal Stacked Bar */}
       {chartData.length > 0 && (
         <div className="space-y-4 mb-6">
           <div className="flex items-center space-x-2 mb-4">
@@ -94,121 +76,93 @@ export function Spend() {
             <h4 className="text-sm font-semibold text-gray-900">Spend by Product</h4>
           </div>
 
-          <div className="h-48 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={chartData}
-                margin={{
-                  top: 20,
-                  right: 30,
-                  left: 20,
-                  bottom: 5,
+          {/* Stacked Bar */}
+          <div className="w-full bg-gray-200 rounded-full h-8 overflow-hidden">
+            {chartData.map((item, index) => (
+              <div
+                key={index}
+                className="h-full inline-block"
+                style={{
+                  width: `${item.percentage}%`,
+                  backgroundColor: colors[index % colors.length],
                 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis hide />
-                <YAxis 
-                  tick={{ fontSize: 12 }}
-                  tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+                title={`${item.name}: ${item.formattedValue} (${item.percentage.toFixed(1)}%)`}
+              />
+            ))}
           </div>
 
-          {/* Legend */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* Product List */}
+          <div className="space-y-2">
             {chartData.map((item, index) => (
-              <div key={index} className="flex items-center space-x-2">
-                <div 
-                  className="w-3 h-3 rounded-full" 
-                  style={{ backgroundColor: colors[index % colors.length] }}
-                />
-                <span className="text-xs text-gray-600 truncate">{item.name}</span>
-                <span className="text-xs font-semibold text-gray-900 ml-auto">
-                  {item.percentage.toFixed(1)}%
-                </span>
+              <div key={index} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <div 
+                    className="w-4 h-4 rounded-full" 
+                    style={{ backgroundColor: colors[index % colors.length] }}
+                  ></div>
+                  <span className="text-sm font-medium text-gray-900">{item.name}</span>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <span className="text-sm font-semibold text-gray-900">{item.formattedValue}</span>
+                  <span className="text-sm text-gray-600 min-w-[3rem] text-right">
+                    {item.percentage.toFixed(1)}%
+                  </span>
+                </div>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Budget and Alerts Section */}
-      <div className="border-t border-gray-200 pt-6">
-        <div className="flex items-center space-x-2 mb-4">
-          <Target className="w-4 h-4 text-gray-600" />
-          <h4 className="text-sm font-semibold text-gray-900">Budget & Alerts</h4>
+      {/* Budget & Alerts Section */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-gray-900">Budget & Alerts</h3>
+        
+        {/* Monthly Budget Card */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h4 className="text-base font-semibold text-gray-900">Monthly Budget</h4>
+              <p className="text-sm text-gray-600">Set a spending limit for this month</p>
+            </div>
+            <Switch />
+          </div>
+          
+          <div className="flex items-center space-x-3">
+            <Input
+              type="number"
+              value={budgetAmount}
+              onChange={(e) => setBudgetAmount(e.target.value)}
+              className="flex-1"
+              placeholder="5000"
+            />
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+              Set Budget
+            </Button>
+          </div>
         </div>
 
-        <div className="space-y-4">
-          {/* Budget Setting */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h5 className="text-sm font-semibold text-gray-900">Monthly Budget</h5>
-                <p className="text-xs text-gray-600">Set a spending limit for this month</p>
-              </div>
+        {/* Spend Alerts Card */}
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-center space-x-2 mb-4">
+            <Bell className="w-4 h-4 text-gray-600" />
+            <h4 className="text-base font-semibold text-gray-900">Spend Alerts</h4>
+          </div>
+          
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-700">Alert at 75% of budget</span>
+              <Switch defaultChecked />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-700">Alert at 90% of budget</span>
+              <Switch defaultChecked />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-700">Alert at 100% of budget</span>
               <Switch />
             </div>
-            <div className="flex items-center space-x-2">
-              <Input 
-                type="number" 
-                placeholder="Enter amount" 
-                className="flex-1"
-                defaultValue="5000"
-              />
-              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
-                Set Budget
-              </Button>
-            </div>
           </div>
-
-          {/* Alert Settings */}
-          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
-            <div className="flex items-center space-x-2 mb-3">
-              <Bell className="w-4 h-4 text-amber-600" />
-              <h5 className="text-sm font-semibold text-gray-900">Spend Alerts</h5>
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="alert-75" className="text-sm text-gray-700">
-                  Alert at 75% of budget
-                </Label>
-                <Switch id="alert-75" defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="alert-90" className="text-sm text-gray-700">
-                  Alert at 90% of budget
-                </Label>
-                <Switch id="alert-90" defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="alert-100" className="text-sm text-gray-700">
-                  Alert at 100% of budget
-                </Label>
-                <Switch id="alert-100" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Summary */}
-      <div className="mt-6 pt-6 border-t border-gray-200">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <TrendingUp className="w-4 h-4 text-blue-500" />
-            <span className="text-sm font-medium text-gray-700">Period total</span>
-          </div>
-          <span className="text-lg font-bold text-gray-900">
-            {formatCurrency(totalSpend)}
-          </span>
         </div>
       </div>
     </div>

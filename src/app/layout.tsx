@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AlphaSense Billing Dashboard",
-  description: "Metronome billing data dashboard with AlphaSense branding",
+  title: "Metronome Billing Dashboard",
+  description: "Metronome billing data dashboard",
 };
 
 export default function RootLayout({

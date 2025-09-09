@@ -1,4 +1,4 @@
-# AlphaSense Billing Dashboard
+# Metronome Billing Dashboard
 
 A modern, single-page Next.js application for displaying Metronome billing data with AlphaSense branding.
 
@@ -9,7 +9,7 @@ A modern, single-page Next.js application for displaying Metronome billing data 
 - **Cost Breakdown Chart**: Visual representation of costs by product over time
 - **Budget & Alerts**: Create spending alerts and budget notifications
 - **Call Details**: Detailed view of individual API calls and usage
-- **AlphaSense Branding**: Professional UI matching AlphaSense design language
+- **Branding**: Professional UI matching AlphaSense design language
 - **Automatic Configuration**: Uses environment variables for API credentials
 
 ## Getting Started

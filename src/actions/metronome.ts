@@ -83,7 +83,7 @@ type InvoiceListBreakdownsResponse = {
 /**
  * Helper to initialize Metronome client with default API key if not provided
  */
-function getMetronomeClient(api_key: string): InstanceType<typeof Metronome> {
+function getMetronomeClient(api_key?: string): InstanceType<typeof Metronome> {
   const token = api_key || process.env.METRONOME_API_TOKEN || "";
   return new Metronome({ bearerToken: token });
 }
@@ -91,10 +91,11 @@ function getMetronomeClient(api_key: string): InstanceType<typeof Metronome> {
 export async function createMetronomeEmbeddableLink(
   customer_id: string,
   type: DashboardType,
+  api_key?: string,
   resolvedTheme?: string,
 ) {
   try {
-    const client = getMetronomeClient(process.env.METRONOME_API_TOKEN || "");
+    const client = getMetronomeClient(api_key);
 
     const color_overrides =
       resolvedTheme === "dark"
@@ -129,9 +130,10 @@ export async function createMetronomeEmbeddableLink(
 
 export async function fetchMetronomeCustomerBalance(
   customer_id: string,
+  api_key?: string,
 ): Promise<ApiResponse<BalanceResult>> {
   try {
-    const client = getMetronomeClient(process.env.METRONOME_API_TOKEN || "");
+    const client = getMetronomeClient(api_key);
     const response = await client.v1.contracts.listBalances({
       customer_id: customer_id,
       covering_date: new Date().toISOString(),
@@ -142,7 +144,7 @@ export async function fetchMetronomeCustomerBalance(
 
     let total_granted = 0;
     let total_used = 0;
-
+    console.log(response.data);
     const processed_grants = response.data.map((grant) => {
       // Calculate total granted for this item
       const granted = grant.access_schedule?.schedule_items
@@ -166,7 +168,7 @@ export async function fetchMetronomeCustomerBalance(
       return {
         id: grant.id,
         type: grant.type,
-        product_name: grant.product.name,
+        product_name: grant.name || grant.product.name,
         granted,
         used,
         remaining: granted - used,
@@ -188,9 +190,10 @@ export async function fetchMetronomeCustomerBalance(
 export async function fetchMetronomeInvoiceBreakdown(
   customer_id: string,
   window_size: WindowSize,
+  api_key?: string,
 ): Promise<ApiResponse<InvoiceBreakdownResult>> {
   try {
-    const client = getMetronomeClient(process.env.METRONOME_API_TOKEN || "");
+    const client = getMetronomeClient(api_key);
     const { start, end } = interval(30);
     let data: InvoiceListBreakdownsResponse[] = [];
 
@@ -233,9 +236,10 @@ export async function fetchMetronomeInvoiceBreakdown(
 
 export async function fetchCustomerSpendAlerts(
   customer_id: string,
+  api_key?: string,
 ): Promise<any> {
   try {
-    const client = getMetronomeClient(process.env.METRONOME_API_TOKEN || "");
+    const client = getMetronomeClient(api_key);
     const response = await client.v1.customers.alerts.list({
       customer_id: customer_id,
     });
@@ -256,9 +260,10 @@ export async function fetchCustomerSpendAlerts(
 export async function createCustomerSpendAlert(
   customer_id: string,
   threshold: number,
+  api_key?: string,
 ): Promise<any> {
   try {
-    const client = getMetronomeClient(process.env.METRONOME_API_TOKEN || "");
+    const client = getMetronomeClient(api_key);
     await client.v1.alerts.create({
       customer_id: customer_id,
       alert_type: "spend_threshold_reached",
@@ -277,9 +282,10 @@ export async function createCustomerSpendAlert(
 
 export async function fetchCurrentSpendDraftInvoice(
   customer_id: string,
+  api_key?: string,
 ): Promise<ApiResponse<SpendResult>> {
   try {
-    const client = getMetronomeClient(process.env.METRONOME_API_TOKEN || "");
+    const client = getMetronomeClient(api_key);
     const invoices = await client.v1.customers.invoices.list({
       customer_id: customer_id,
       status: "DRAFT",
@@ -302,6 +308,29 @@ export async function fetchCurrentSpendDraftInvoice(
       });
     }
     return { status: "success", result: { total, productTotals } };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+export async function fetchMetronomeCustomers(
+  api_key?: string,
+): Promise<ApiResponse<any[]>> {
+  try {
+    const client = getMetronomeClient(api_key);
+
+    let response = await client.v1.customers.list();
+    let data = [...response.data];
+    while (response.next_page) {
+      response = await client.v1.customers.list({
+        next_page: response.next_page,
+      });
+      data = [...data, ...response.data];
+    }
+    return { status: "success", result: data };
   } catch (error) {
     return {
       status: "error",
