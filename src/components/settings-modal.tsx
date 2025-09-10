@@ -51,44 +51,46 @@ export function SettingsModal({ onApiKeyChange, onBusinessNameChange }: Settings
   }, []);
 
   const handleSave = async () => {
-    if (!apiKey.trim()) {
-      setValidationStatus("error");
-      return;
-    }
+    if (!apiKey.trim()) return;
 
     setIsValidating(true);
     setValidationStatus("idle");
 
     try {
-      // Store API key in localStorage
-      localStorage.setItem(METRONOME_API_KEY_STORAGE_KEY, apiKey.trim());
-      
-      // Store business name in localStorage
-      localStorage.setItem(BUSINESS_NAME_STORAGE_KEY, businessName.trim() || DEFAULT_BUSINESS_NAME);
-      
-      // Validate the API key by making a test call
-      const response = await fetch("/api/validate-metronome-key", {
-        method: "POST",
+      // Validate API key by making a test request
+      const response = await fetch('/api/validate-metronome-key', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({ apiKey: apiKey.trim() }),
       });
 
-      if (response.ok) {
+      const result = await response.json();
+
+      if (result.success) {
+        // Save to localStorage
+        localStorage.setItem(METRONOME_API_KEY_STORAGE_KEY, apiKey.trim());
+        localStorage.setItem(BUSINESS_NAME_STORAGE_KEY, businessName);
+        
         setValidationStatus("success");
+        
+        // Notify parent components
         onApiKeyChange?.(apiKey.trim());
-        onBusinessNameChange?.(businessName.trim() || DEFAULT_BUSINESS_NAME);
+        onBusinessNameChange?.(businessName);
+        
+        // Dispatch custom event to notify customer context
+        window.dispatchEvent(new CustomEvent('apiKeyChanged'));
         
         // Close modal after a short delay
         setTimeout(() => {
           setIsOpen(false);
-        }, 1000);
+        }, 1500);
       } else {
         setValidationStatus("error");
       }
     } catch (error) {
-      console.error("Error validating API key:", error);
+      console.error('Error validating API key:', error);
       setValidationStatus("error");
     } finally {
       setIsValidating(false);
@@ -193,6 +195,14 @@ export function SettingsModal({ onApiKeyChange, onBusinessNameChange }: Settings
                 )}
               </Button>
             </div>
+            
+            {/* Security Warning */}
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-sm text-red-800 font-medium">
+                ⚠️ <strong>IMPORTANT:</strong> Only use SANDBOX API keys. Never use production keys in this demo application.
+              </p>
+            </div>
+            
             {getValidationMessage() && (
               <div className={`flex items-center space-x-2 text-sm ${
                 validationStatus === "success" ? "text-green-600" : "text-red-600"
@@ -211,7 +221,7 @@ export function SettingsModal({ onApiKeyChange, onBusinessNameChange }: Settings
             disabled={(!apiKey && businessName === DEFAULT_BUSINESS_NAME) || isValidating}
             className="w-full sm:w-auto"
           >
-            Reset to Defaults
+            Clear API Key
           </Button>
           <Button
             onClick={handleSave}
