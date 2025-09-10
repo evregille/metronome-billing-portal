@@ -3,9 +3,8 @@
 import { useEffect, useState } from "react";
 import { useMetronome } from "@/hooks/use-metronome-config";
 import { formatCurrency } from "@/lib/utils";
-import { DollarSign, TrendingUp, Package, Target, Bell, Edit, Trash2, Plus } from "lucide-react";
+import { DollarSign, Package, Bell, Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
@@ -19,7 +18,6 @@ export function Spend() {
     deleteAlert
   } = useMetronome();
   
-  const [budgetAmount, setBudgetAmount] = useState("5000");
   const [isEditingAlert, setIsEditingAlert] = useState(false);
   const [alertThreshold, setAlertThreshold] = useState(1000);
   const [alertEnabled, setAlertEnabled] = useState(true);
