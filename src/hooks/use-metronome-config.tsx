@@ -14,6 +14,7 @@ import {
   createMetronomeEmbeddableLink,
   fetchCurrentSpendDraftInvoice,
   fetchCustomerAlerts,
+  fetchCustomerInvoices,
   fetchMetronomeCustomerBalance,
   fetchMetronomeInvoiceBreakdown,
 } from "@/actions/metronome";
@@ -59,6 +60,13 @@ interface CurrentSpend {
   productTotals: Record<string, number>;
 }
 
+interface InvoiceListItem {
+  start_timestamp: string;
+  end_timestamp: string;
+  total: number;
+  status: string;
+}
+
 interface AlertData {
   id?: string;
   customer_status: string | null;
@@ -84,6 +92,7 @@ interface LoadingStates {
   alerts: boolean;
   invoiceEmbeddable: boolean;
   commitsEmbeddable: boolean;
+  invoices: boolean;
 }
 
 interface MetronomeContextType {
@@ -93,6 +102,7 @@ interface MetronomeContextType {
   usage: BreakdownData | null;
   currentSpend: CurrentSpend | null;
   alerts: AlertsResult | null;
+  invoices: InvoiceListItem[] | null;
   invoiceEmbeddableUrl: string | null;
   commitsEmbeddableUrl: string | null;
   loadingStates: LoadingStates;
@@ -101,6 +111,7 @@ interface MetronomeContextType {
   fetchUsage: () => Promise<void>;
   fetchCurrentSpend: () => Promise<void>;
   fetchAlerts: () => Promise<void>;
+  fetchInvoices: () => Promise<void>;
   fetchInvoiceEmbeddable: () => Promise<void>;
   fetchCommitsEmbeddable: () => Promise<void>;
   createSpendAlert: (threshold: number) => Promise<void>;
@@ -128,6 +139,7 @@ export function MetronomeProvider({
   const [usage, setUsage] = useState<BreakdownData | null>(null);
   const [currentSpend, setCurrentSpend] = useState<CurrentSpend | null>(null);
   const [alerts, setAlerts] = useState<AlertsResult | null>(null);
+  const [invoices, setInvoices] = useState<InvoiceListItem[] | null>(null);
   const [invoiceEmbeddableUrl, setInvoiceEmbeddableUrl] = useState<string | null>(null);
   const [commitsEmbeddableUrl, setCommitsEmbeddableUrl] = useState<string | null>(null);
 
@@ -138,6 +150,7 @@ export function MetronomeProvider({
     alerts: false,
     invoiceEmbeddable: false,
     commitsEmbeddable: false,
+    invoices: false,
   });
 
   // Update customer_id when it changes
@@ -149,6 +162,7 @@ export function MetronomeProvider({
       setUsage(null);
       setCurrentSpend(null);
       setAlerts(null);
+      setInvoices(null);
       setInvoiceEmbeddableUrl(null);
       setCommitsEmbeddableUrl(null);
       
@@ -267,6 +281,28 @@ export function MetronomeProvider({
     }
   }, [config.customer_id, apiKey]);
 
+  const fetchInvoices = useCallback(async () => {
+    if (!config.customer_id) return;
+
+    setLoadingStates(prev => ({ ...prev, invoices: true }));
+    try {
+      const response = await fetchCustomerInvoices(
+        config.customer_id,
+        apiKey, // This can be undefined, and backend will use env var
+      );
+
+      if (response.status === "success") {
+        setInvoices(response.result.invoices);
+      } else {
+        console.error("Failed to fetch invoices:", response.message);
+      }
+    } catch (error) {
+      console.error("Error fetching invoices:", error);
+    } finally {
+      setLoadingStates(prev => ({ ...prev, invoices: false }));
+    }
+  }, [config.customer_id, apiKey]);
+
   const fetchInvoiceEmbeddable = useCallback(async () => {
     if (!config.customer_id) return;
 
@@ -355,7 +391,6 @@ export function MetronomeProvider({
     }
   }, [config.customer_id, apiKey, fetchAlerts]);
 
-
   const deleteAlert = useCallback(async (alertId: string) => {
     try {
       
@@ -382,6 +417,7 @@ export function MetronomeProvider({
     usage,
     currentSpend,
     alerts,
+    invoices,
     invoiceEmbeddableUrl,
     commitsEmbeddableUrl,
     loadingStates,
@@ -390,6 +426,7 @@ export function MetronomeProvider({
     fetchUsage,
     fetchCurrentSpend,
     fetchAlerts,
+    fetchInvoices,
     fetchInvoiceEmbeddable,
     fetchCommitsEmbeddable,
     createSpendAlert,

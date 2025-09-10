@@ -100,6 +100,18 @@ type AlertsResult = {
   spendAlert: AlertData | null;
 };
 
+// Add this type definition near the other types
+type InvoiceListItem = {
+  start_timestamp: string;
+  end_timestamp: string;
+  total: number;
+  status: string;
+};
+
+type InvoiceListResult = {
+  invoices: InvoiceListItem[];
+};
+
 /**
  * Helper to initialize Metronome client with default API key if not provided
  */
@@ -406,6 +418,35 @@ export async function fetchCurrentSpendDraftInvoice(
       });
     }
     return { status: "success", result: { total, productTotals } };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+export async function fetchCustomerInvoices(
+  customer_id: string,
+  api_key?: string,
+): Promise<ApiResponse<InvoiceListResult>> {
+  try {
+    const client = getMetronomeClient(api_key);
+    const response = await client.v1.customers.invoices.list({
+      customer_id: customer_id,
+    });
+
+    const invoices: InvoiceListItem[] = response.data.map((invoice: any) => ({
+      start_timestamp: invoice.start_timestamp,
+      end_timestamp: invoice.end_timestamp,
+      total: invoice.total,
+      status: invoice.status,
+    }));
+
+    return {
+      status: "success",
+      result: { invoices },
+    };
   } catch (error) {
     return {
       status: "error",
