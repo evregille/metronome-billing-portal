@@ -104,11 +104,12 @@ function DashboardContent() {
                 <Spend />
               </div>
 
+              {/* Cost Breakdown */}
+              <CostBreakdownChart />
+
               {/* Invoices */}
               <Invoices />
 
-              {/* Cost Breakdown */}
-              <CostBreakdownChart />
             </div>
           </MetronomeProvider>
         ) : (

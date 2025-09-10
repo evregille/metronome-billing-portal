@@ -17,6 +17,11 @@ interface DimensionData {
   color: string;
 }
 
+// Simple function to normalize product names (remove tier suffixes)
+const normalizeProductName = (productName: string): string => {
+  return productName.replace(/\s*-\s*Tier\s+\d+$/i, '');
+};
+
 export function CostBreakdownChart() {
   const { costs, fetchCosts, loadingStates } = useMetronome();
   const [chartData, setChartData] = useState<any[]>([]);
@@ -58,11 +63,18 @@ export function CostBreakdownChart() {
         name,
         properties: Object.keys(properties as Record<string, any>)
       }));
-      setAvailableProducts(products);
       
-      // Set default selection to first product if none selected
-      if (products.length > 0 && !selectedProduct) {
-        setSelectedProduct(products[0].name);
+      // Add "All Products" option at the beginning
+      const allProductsOption: ProductFilter = {
+        name: "All Products",
+        properties: []
+      };
+      
+      setAvailableProducts([allProductsOption, ...products]);
+      
+      // Set default selection to "All Products" if none selected
+      if (!selectedProduct) {
+        setSelectedProduct("All Products");
       }
     }
   }, [costs, selectedProduct]);
@@ -70,22 +82,28 @@ export function CostBreakdownChart() {
   // Update available properties when product changes
   useEffect(() => {
     if (selectedProduct && costs?.products) {
-      const product = costs.products[selectedProduct];
-      if (product) {
-        const properties = Object.keys(product);
-        setAvailableProperties(properties);
-        
-        // Set default property to first one if none selected
-        if (properties.length > 0 && !selectedProperty) {
-          setSelectedProperty(properties[0]);
+      if (selectedProduct === "All Products") {
+        // For "All Products", hide the property filter
+        setAvailableProperties([]);
+        setSelectedProperty("");
+      } else {
+        const product = costs.products[selectedProduct];
+        if (product) {
+          const properties = Object.keys(product);
+          setAvailableProperties(properties);
+          
+          // Set default property to first one if none selected
+          if (properties.length > 0 && !selectedProperty) {
+            setSelectedProperty(properties[0]);
+          }
         }
       }
     }
   }, [selectedProduct, costs, selectedProperty]);
 
-  // Extract dimensions when property is selected
+  // Extract dimensions when property is selected (only for specific products)
   useEffect(() => {
-    if (selectedProduct && selectedProperty && costs?.products) {
+    if (selectedProduct && selectedProduct !== "All Products" && selectedProperty && costs?.products) {
       const product = costs.products[selectedProduct];
       if (product && product[selectedProperty]) {
         const dimensionValues = product[selectedProperty];
@@ -96,13 +114,21 @@ export function CostBreakdownChart() {
         }));
         setDimensions(dimensionData);
       }
+    } else if (selectedProduct === "All Products") {
+      // For "All Products", create dimensions based on product names
+      const productNames = Object.keys(costs?.products || {});
+      const dimensionData: DimensionData[] = productNames.map((productName, index) => ({
+        name: productName,
+        value: 0, // Will be calculated from items
+        color: dimensionColors[index % dimensionColors.length]
+      }));
+      setDimensions(dimensionData);
     }
   }, [selectedProduct, selectedProperty, costs]);
 
   // Process chart data based on selected filters
   useEffect(() => {
-    
-    if (costs?.items && selectedProduct && selectedProperty && dimensions.length > 0) {
+    if (costs?.items && selectedProduct && dimensions.length > 0) {
       const data = costs.items.map((item: any) => {
         const chartItem: any = {
           date: new Date(item.starting_on).toLocaleDateString("en-US", {
@@ -113,27 +139,49 @@ export function CostBreakdownChart() {
           rawData: item
         };
 
-        // Add values for each dimension
-        dimensions.forEach((dimension) => {
-          chartItem[dimension.name] = item[dimension.name] || 0;
-        });
+        if (selectedProduct === "All Products") {
+          // For "All Products", show breakdown by product names
+          dimensions.forEach((dimension) => {
+            chartItem[dimension.name] = item[dimension.name] || 0;
+          });
+        } else {
+          // For specific product, filter line items and aggregate by dimensions
+          dimensions.forEach((dimension) => {
+            // Filter line items for the selected product and aggregate by dimension
+            const filteredLineItems = item.line_items?.filter((lineItem: any) => 
+              lineItem.product_type === "UsageProductListItem" && 
+              lineItem.total >= 0 &&
+              normalizeProductName(lineItem.name) === selectedProduct
+            ) || [];
+            
+            // Aggregate by the selected property (dimension)
+            const dimensionTotal = filteredLineItems.reduce((sum: number, lineItem: any) => {
+              // Check if the line item matches the dimension value
+              if (selectedProperty) {
+                const groupValues = lineItem.pricing_group_values || lineItem.presentation_group_values || {};
+                if (groupValues[selectedProperty] === dimension.name) {
+                  return sum + lineItem.total; // Remove /100 since formatCurrency handles the conversion
+                }
+              }
+              return sum;
+            }, 0);
+            
+            chartItem[dimension.name] = dimensionTotal;
+          });
+        }
 
         // Calculate total for this item
-        chartItem.total = dimensions.reduce((sum, dim) => sum + (item[dim.name] || 0), 0);
+        chartItem.total = dimensions.reduce((sum, dim) => sum + (chartItem[dim.name] || 0), 0);
         
         return chartItem;
       });
       
-      // console.log("Cost breakdown - processed chart data:", data);
       setChartData(data);
     } else {
-      // console.log("Cost breakdown - no items found or filters not selected");
       setChartData([]);
     }
   }, [costs, selectedProduct, selectedProperty, dimensions]);
 
-  const totalSpend = chartData.reduce((sum, item) => sum + item.total, 0);
-  const avgDailySpend = chartData.length > 0 ? totalSpend / chartData.length : 0;
 
   const handleProductChange = (productName: string) => {
     setSelectedProduct(productName);
@@ -163,7 +211,7 @@ export function CostBreakdownChart() {
     );
   }
 
-  if (!availableProducts.length) {
+  if (!availableProducts.length || availableProducts.length === 1) {
     return (
       <div className="glass-card card-hover rounded-2xl p-6">
         <div className="flex items-center space-x-3 mb-6">
@@ -184,10 +232,6 @@ export function CostBreakdownChart() {
           <p className="text-gray-600 mb-4">
             No cost breakdown data found for the selected period.
           </p>
-          <div className="text-sm text-gray-500">
-            <p>Debug info:</p>
-            <p>Costs object: {JSON.stringify(costs, null, 2)}</p>
-          </div>
         </div>
       </div>
     );
@@ -203,9 +247,11 @@ export function CostBreakdownChart() {
           <div>
             <h3 className="text-lg font-semibold text-gray-900">Cost Breakdown</h3>
             <p className="text-sm text-gray-600">
-              {selectedProduct && selectedProperty 
-                ? `${selectedProduct} by ${selectedProperty.replace(/_/g, ' ')}`
-                : 'Daily spending trends'
+              {selectedProduct === "All Products"
+                ? 'Breakdown by Product'
+                : selectedProduct && selectedProperty 
+                  ? `${selectedProduct} by ${selectedProperty.replace(/_/g, ' ')}`
+                  : 'Daily spending trends'
               }
             </p>
           </div>
@@ -231,8 +277,8 @@ export function CostBreakdownChart() {
             <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
           </div>
 
-          {/* Property Filter */}
-          {availableProperties.length > 0 && (
+          {/* Property Filter - Only show for specific products */}
+          {selectedProduct !== "All Products" && availableProperties.length > 0 && (
             <div className="relative">
               <select
                 value={selectedProperty}
@@ -272,7 +318,7 @@ export function CostBreakdownChart() {
             />
             <Tooltip
               formatter={(value, name) => [
-                `$${formatCurrency(Number(value))}`, 
+                `$${Number(value).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`, 
                 name
               ]}
               labelFormatter={(value) => `Date: ${value}`}
@@ -301,54 +347,6 @@ export function CostBreakdownChart() {
           </BarChart>
         </ResponsiveContainer>
       </div>
-
-      {/* Summary Stats */}
-      <div className="grid grid-cols-2 gap-4 pt-6 border-t border-gray-200">
-        <div className="text-center">
-          <div className="text-2xl font-bold text-gray-900">
-            {formatCurrency(totalSpend)}
-          </div>
-          <div className="text-sm text-gray-600">
-            Total {selectedProduct || 'Spend'}
-          </div>
-        </div>
-        <div className="text-center">
-          <div className="text-2xl font-bold text-gray-900">
-            {formatCurrency(avgDailySpend)}
-          </div>
-          <div className="text-sm text-gray-600">Avg Daily</div>
-        </div>
-      </div>
-
-      {/* Dimension Breakdown */}
-      {dimensions.length > 0 && (
-        <div className="mt-6 pt-6 border-t border-gray-200">
-          <h4 className="text-sm font-medium text-gray-900 mb-3">Breakdown by {selectedProperty?.replace(/_/g, ' ')}</h4>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {dimensions.map((dimension) => {
-              const dimensionTotal = chartData.reduce((sum, item) => sum + (item[dimension.name] || 0), 0);
-              const percentage = totalSpend > 0 ? (dimensionTotal / totalSpend) * 100 : 0;
-              
-              return (
-                <div key={dimension.name} className="flex items-center space-x-2 p-2 bg-gray-50 rounded-lg">
-                  <div 
-                    className="w-3 h-3 rounded-full" 
-                    style={{ backgroundColor: dimension.color }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-gray-900 truncate">
-                      {dimension.name}
-                    </div>
-                    <div className="text-xs text-gray-600">
-                      {formatCurrency(dimensionTotal)} ({percentage.toFixed(1)}%)
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

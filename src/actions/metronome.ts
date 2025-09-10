@@ -559,6 +559,7 @@ const retrieveCost = (breakdowns: Array<any>): any => {
       ...product_names,
       starting_on: breakdown.breakdown_start_timestamp,
       type: breakdown.type,
+      line_items: breakdown.line_items, // Add line_items to preserve original data
     });
   });
   return { products, items };
