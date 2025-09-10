@@ -242,8 +242,7 @@ export function Spend() {
                   size="sm"
                   onClick={() => setIsEditingAlert(!isEditingAlert)}
                 >
-                  <Plus className="w-3 h-3 mr-1" />
-                  Set Budget
+                  Create
                 </Button>
               </div>
               

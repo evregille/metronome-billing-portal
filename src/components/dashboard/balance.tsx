@@ -322,8 +322,7 @@ export function Balance() {
                       size="sm"
                       onClick={() => setIsEditingAlert(!isEditingAlert)}
                     >
-                      <Plus className="w-3 h-3 mr-1" />
-                      Create Notification
+                      Create
                     </Button>
                   </div>
                   
