@@ -182,7 +182,6 @@ export function CostBreakdownChart() {
     }
   }, [costs, selectedProduct, selectedProperty, dimensions]);
 
-
   const handleProductChange = (productName: string) => {
     setSelectedProduct(productName);
     setSelectedProperty(""); // Reset property when product changes
@@ -192,25 +191,28 @@ export function CostBreakdownChart() {
     setSelectedProperty(propertyName);
   };
 
-  if (loadingStates.costs) {
-    return (
-      <div className="glass-card card-hover rounded-2xl p-6">
-        <div className="flex items-center space-x-3 mb-6">
-          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
-            <BarChart3 className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">Cost Breakdown</h3>
-            <p className="text-sm text-gray-600">Loading cost data...</p>
-          </div>
-        </div>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-        </div>
-      </div>
-    );
+  if (loadingStates.costs || Object.keys(costs?.products || {}).length === 0) {
+    return <></>
   }
+  //   return (
+  //     <div className="glass-card card-hover rounded-2xl p-6">
+  //       <div className="flex items-center space-x-3 mb-6">
+  //         <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
+  //           <BarChart3 className="w-6 h-6 text-white" />
+  //         </div>
+  //         <div>
+  //           <h3 className="text-lg font-semibold text-gray-900">Cost Breakdown</h3>
+  //           <p className="text-sm text-gray-600">Loading cost data...</p>
+  //         </div>
+  //       </div>
+  //       <div className="flex items-center justify-center h-64">
+  //         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
+  console.log('costs', costs);
   if (!availableProducts.length || availableProducts.length === 1) {
     return (
       <div className="glass-card card-hover rounded-2xl p-6">
@@ -314,11 +316,11 @@ export function CostBreakdownChart() {
               axisLine={false}
               tickMargin={8}
               tick={{ fontSize: 12, fill: '#64748b' }}
-              tickFormatter={(value) => `$${value.toFixed(0)}`}
+              tickFormatter={(value) => `${formatCurrency(value.toFixed(0), costs?.currency_name)}`}
             />
             <Tooltip
               formatter={(value, name) => [
-                `$${Number(value).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`, 
+                `${formatCurrency(Number(value), costs?.currency_name)}`, 
                 name
               ]}
               labelFormatter={(value) => `Date: ${value}`}

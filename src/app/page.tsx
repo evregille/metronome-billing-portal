@@ -5,6 +5,7 @@ import { CustomerProvider, useCustomer } from "@/contexts/customer-context";
 import { MetronomeProvider } from "@/hooks/use-metronome-config";
 import { Balance } from "@/components/dashboard/balance";
 import { Spend } from "@/components/dashboard/spend";
+import { Usage } from "@/components/dashboard/usage";
 import { Invoices } from "@/components/dashboard/invoices";
 import { CostBreakdownChart } from "@/components/charts/cost-breakdown-chart";
 import { CustomerSelector } from "@/components/customer-selector";
@@ -116,6 +117,9 @@ function DashboardContent() {
 
               {/* Cost Breakdown */}
               <CostBreakdownChart />
+
+              {/* Usage Analytics */}
+              <Usage />
 
               {/* Invoices */}
               <Invoices />

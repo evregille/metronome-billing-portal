@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { formatCurrency } from "@/lib/utils";
-import { Wallet, Phone, MessageCircle, Package, CheckCircle, ExternalLink, Loader2, Bell, Target, Edit, Trash2, Plus } from "lucide-react";
+import { formatCurrency, getCoinSymbol } from "@/lib/utils";
+import { Wallet, Package, CheckCircle, ExternalLink, Loader2, Bell, Trash2 } from "lucide-react";
 
 export function Balance() {
   const { 
@@ -26,8 +26,7 @@ export function Balance() {
   const [showEmbeddable, setShowEmbeddable] = useState(false);
   const [isEditingAlert, setIsEditingAlert] = useState(false);
   const [alertThreshold, setAlertThreshold] = useState(1000);
-  const [alertEnabled, setAlertEnabled] = useState(true);
-  const [iframeHeight, setIframeHeight] = useState(400);
+  const [, setAlertEnabled] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -45,23 +44,6 @@ export function Balance() {
     }
   }, [showEmbeddable, config, fetchCommitsEmbeddable]);
 
-  // Calculate dynamic height for iframe
-  useEffect(() => {
-    const calculateHeight = () => {
-      if (containerRef.current) {
-        const containerHeight = containerRef.current.offsetHeight;
-        const headerHeight = 120; // Approximate header height
-        const toggleHeight = 80; // Approximate toggle section height
-        const padding = 48; // Total padding (24px top + 24px bottom)
-        const availableHeight = containerHeight - headerHeight - toggleHeight - padding;
-        setIframeHeight(Math.max(400, availableHeight));
-      }
-    };
-
-    calculateHeight();
-    window.addEventListener('resize', calculateHeight);
-    return () => window.removeEventListener('resize', calculateHeight);
-  }, [showEmbeddable]);
 
   // Initialize alert form when balance alert exists
   useEffect(() => {
@@ -122,8 +104,6 @@ export function Balance() {
     }
   };
 
-  console.log(alerts);
-
   return (
     <div ref={containerRef} className="glass-card card-hover rounded-2xl p-6 h-full">
       {/* Header - Always visible */}
@@ -140,7 +120,7 @@ export function Balance() {
         {balance && (
           <div className="text-right">
             <div className="text-3xl font-bold text-gray-900">
-              {formatCurrency(balance.total_granted - balance.total_used)}
+              {formatCurrency(balance.total_granted - balance.total_used, balance.currency_name)}
             </div>
             <div className="text-sm text-gray-600">remaining</div>
           </div>
@@ -152,29 +132,42 @@ export function Balance() {
         // Show embeddable iframe
         <div className="flex-1">
           {loadingStates.commitsEmbeddable ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
-              <span className="ml-2 text-gray-500">Loading embeddable...</span>
+            <div className="flex items-center justify-center h-96 bg-gray-50 rounded-lg">
+              <div className="text-center">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-3" />
+                <p className="text-gray-600">Loading embeddable dashboard...</p>
+              </div>
             </div>
           ) : commitsEmbeddableUrl ? (
-            <div className="overflow-hidden h-full">
+            <div className="overflow-hidden rounded-lg border border-gray-200 h-96">
               <iframe
                 src={commitsEmbeddableUrl}
-                className="w-full"
-                style={{ height: `${iframeHeight}px` }}
+                className="w-full h-full"
                 title="Metronome Commits Embeddable"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
               />
             </div>
           ) : (
-            <div className="text-center py-12 text-gray-500">
-              <p>Failed to load embeddable content</p>
+            <div className="flex items-center justify-center h-96 bg-gray-50 rounded-lg">
+              <div className="text-center">
+                <ExternalLink className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-600">Failed to load embeddable dashboard</p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="mt-3"
+                  onClick={() => fetchCommitsEmbeddable()}
+                >
+                  Retry
+                </Button>
+              </div>
             </div>
           )}
         </div>
       ) : (
         // Show balance details
         balance ? (
-          <div className="space-y-6 flex-1">
+          <div className="space-y-6 flex-1 min-h-96">
             {/* Overall Usage */}
             {balance.total_granted > 0 && (
               <div className="space-y-3">
@@ -193,8 +186,8 @@ export function Balance() {
                 </div>
                 
                 <div className="flex justify-between text-xs text-gray-500">
-                  <span>{formatCurrency(balance.total_used)} used</span>
-                  <span>{formatCurrency(balance.total_granted)} granted</span>
+                  <span>{formatCurrency(balance.total_used, balance.currency_name)} used</span>
+                  <span>{formatCurrency(balance.total_granted, balance.currency_name)} granted</span>
                 </div>
               </div>
             )}
@@ -208,7 +201,7 @@ export function Balance() {
                 <h3 className="text-lg font-semibold text-gray-900">Commits Breakdown</h3>
               </div>
               <div className="space-y-4">
-                {balance.processed_grants.map((grant, index) => {
+                {balance.processed_grants.map((grant) => {
                   const usagePercentage = grant.granted > 0 ? (grant.used / grant.granted) * 100 : 0;
                   const isFullyUsed = usagePercentage >= 100;
                   
@@ -227,7 +220,7 @@ export function Balance() {
                         </div>
                         <div className="text-right">
                           <p className={`text-lg font-semibold ${isFullyUsed ? 'text-green-500' : 'text-green-500'}`}>
-                            {formatCurrency(grant.remaining)} remaining
+                            {formatCurrency(grant.remaining, balance.currency_name)} remaining
                           </p>
                         </div>
                       </div>
@@ -256,16 +249,16 @@ export function Balance() {
                       <div className="flex justify-between mt-3 pt-3 border-t border-gray-100">
                         <div className="text-center">
                           <p className="text-sm text-gray-500">Granted</p>
-                          <p className="font-semibold text-gray-900">{formatCurrency(grant.granted)}</p>
+                          <p className="font-semibold text-gray-900">{formatCurrency(grant.granted, balance.currency_name)}</p>
                         </div>
                         <div className="text-center">
                           <p className="text-sm text-gray-500">Used</p>
-                          <p className="font-semibold text-gray-900">{formatCurrency(grant.used)}</p>
+                          <p className="font-semibold text-gray-900">{formatCurrency(grant.used, balance.currency_name)}</p>
                         </div>
                         <div className="text-center">
                           <p className="text-sm text-gray-500">Remaining</p>
                           <p className={`font-semibold ${isFullyUsed ? 'text-green-500' : 'text-green-500'}`}>
-                            {formatCurrency(grant.remaining)}
+                            {formatCurrency(grant.remaining, balance.currency_name)}
                           </p>
                         </div>
                       </div>
@@ -305,7 +298,7 @@ export function Balance() {
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <h5 className="font-medium text-gray-900">Low Balance Notification</h5>
-                      <p className="text-sm text-gray-600">We will notify if your balance reaches below {formatCurrency(alerts.balanceAlert.alert.threshold || 0)}</p>
+                      <p className="text-sm text-gray-600">We will notify if your balance reaches below {formatCurrency(alerts.balanceAlert.alert.threshold || 0, balance.currency_name)}</p>
                     </div>
                   </div>
                 </div>
@@ -333,7 +326,7 @@ export function Balance() {
                           We will notify you when your balance reaches:
                         </Label>
                         <div className="flex items-center space-x-2">
-                          <span className="text-sm text-gray-500">$</span>
+                          <span className="text-sm text-gray-500">{getCoinSymbol(balance.currency_name)}</span>
                           <Input
                             id="balance-threshold"
                             type="number"
@@ -359,8 +352,11 @@ export function Balance() {
             </div>
           </div>
         ) : (
-          <div className="flex items-center justify-center py-12 text-gray-500">
-            <p>No balance data available</p>
+          <div className="flex items-center justify-center h-96 bg-gray-50 rounded-lg">
+            <div className="text-center">
+              <Wallet className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-600">No balance data available</p>
+            </div>
           </div>
         )
       )}

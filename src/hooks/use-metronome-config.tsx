@@ -17,6 +17,7 @@ import {
   fetchCustomerInvoices,
   fetchMetronomeCustomerBalance,
   fetchMetronomeInvoiceBreakdown,
+  fetchRawUsageData as fetchRawUsageDataAction,
 } from "@/actions/metronome";
 
 // Types based on the backend API
@@ -27,6 +28,7 @@ interface MetronomeConfig {
 interface Balance {
   total_granted: number;
   total_used: number;
+  currency_name: string;
   processed_grants: Array<{
     id: string;
     type: string;
@@ -38,6 +40,7 @@ interface Balance {
 }
 
 interface BreakdownData {
+  currency_name: string | undefined;
   products: Record<string, any>;
   items: Array<{
     id: string;
@@ -56,8 +59,8 @@ interface BreakdownData {
 }
 
 interface CurrentSpend {
-  total: number;
-  productTotals: Record<string, number>;
+  total: Record<string, number>;
+  productTotals: Record<string, { total: number; currency_name: string }>;
 }
 
 interface InvoiceListItem {
@@ -85,35 +88,61 @@ interface AlertsResult {
   spendAlert: AlertData | null;
 }
 
+interface UsageDataEntry {
+  timestamp: string;
+  value: number;
+  [key: string]: any;
+}
+
+interface BillableMetricUsage {
+  billable_metric: {
+    id: string;
+    name: string;
+  };
+  raw_usage_data: UsageDataEntry[];
+  aggregated_value: number;
+  total_entries: number;
+  error?: string;
+}
+
+interface RawUsageData {
+  customer_id: string;
+  total_metrics: number;
+  usage_data: BillableMetricUsage[];
+}
+
 interface LoadingStates {
   balance: boolean;
   costs: boolean;
-  usage: boolean;
   alerts: boolean;
   invoiceEmbeddable: boolean;
   commitsEmbeddable: boolean;
+  usageEmbeddable: boolean;
   invoices: boolean;
+  rawUsageData: boolean;
 }
 
 interface MetronomeContextType {
   config: MetronomeConfig;
   balance: Balance | null;
   costs: BreakdownData | null;
-  usage: BreakdownData | null;
   currentSpend: CurrentSpend | null;
   alerts: AlertsResult | null;
   invoices: InvoiceListItem[] | null;
+  rawUsageData: RawUsageData | null;
   invoiceEmbeddableUrl: string | null;
   commitsEmbeddableUrl: string | null;
+  usageEmbeddableUrl: string | null;
   loadingStates: LoadingStates;
   fetchBalance: () => Promise<void>;
   fetchCosts: () => Promise<void>;
-  fetchUsage: () => Promise<void>;
   fetchCurrentSpend: () => Promise<void>;
   fetchAlerts: () => Promise<void>;
   fetchInvoices: () => Promise<void>;
+  fetchRawUsageData: () => Promise<void>;
   fetchInvoiceEmbeddable: () => Promise<void>;
   fetchCommitsEmbeddable: () => Promise<void>;
+  fetchUsageEmbeddable: () => Promise<void>;
   createSpendAlert: (threshold: number) => Promise<void>;
   createBalanceAlert: (threshold: number) => Promise<void>;
   deleteAlert: (alertId: string) => Promise<void>;
@@ -136,21 +165,23 @@ export function MetronomeProvider({
 
   const [balance, setBalance] = useState<Balance | null>(null);
   const [costs, setCosts] = useState<BreakdownData | null>(null);
-  const [usage, setUsage] = useState<BreakdownData | null>(null);
   const [currentSpend, setCurrentSpend] = useState<CurrentSpend | null>(null);
   const [alerts, setAlerts] = useState<AlertsResult | null>(null);
   const [invoices, setInvoices] = useState<InvoiceListItem[] | null>(null);
+  const [rawUsageData, setRawUsageData] = useState<RawUsageData | null>(null);
   const [invoiceEmbeddableUrl, setInvoiceEmbeddableUrl] = useState<string | null>(null);
   const [commitsEmbeddableUrl, setCommitsEmbeddableUrl] = useState<string | null>(null);
+  const [usageEmbeddableUrl, setUsageEmbeddableUrl] = useState<string | null>(null);
 
   const [loadingStates, setLoadingStates] = useState<LoadingStates>({
     balance: false,
     costs: false,
-    usage: false,
     alerts: false,
     invoiceEmbeddable: false,
     commitsEmbeddable: false,
+    usageEmbeddable: false,
     invoices: false,
+    rawUsageData: false,
   });
 
   // Update customer_id when it changes
@@ -159,12 +190,13 @@ export function MetronomeProvider({
       // Reset all data when customer changes
       setBalance(null);
       setCosts(null);
-      setUsage(null);
       setCurrentSpend(null);
       setAlerts(null);
       setInvoices(null);
+      setRawUsageData(null);
       setInvoiceEmbeddableUrl(null);
       setCommitsEmbeddableUrl(null);
+      setUsageEmbeddableUrl(null);
       
       // Update config with new object to trigger re-renders
       setConfig({
@@ -206,6 +238,7 @@ export function MetronomeProvider({
       );
 
       if (response.status === "success") {
+        console.log("fetchCosts response.result.costs:", response.result.costs);
         setCosts(response.result.costs);
       } else {
         console.error("Failed to fetch costs:", response.message);
@@ -214,29 +247,6 @@ export function MetronomeProvider({
       console.error("Error fetching costs:", error);
     } finally {
       setLoadingStates(prev => ({ ...prev, costs: false }));
-    }
-  }, [config.customer_id, apiKey]);
-
-  const fetchUsage = useCallback(async () => {
-    if (!config.customer_id) return;
-
-    setLoadingStates(prev => ({ ...prev, usage: true }));
-    try {
-      const response = await fetchMetronomeInvoiceBreakdown(
-        config.customer_id,
-        "DAY",
-        apiKey, // This can be undefined, and backend will use env var
-      );
-
-      if (response.status === "success") {
-        setUsage(response.result.usage);
-      } else {
-        console.error("Failed to fetch usage:", response.message);
-      }
-    } catch (error) {
-      console.error("Error fetching usage:", error);
-    } finally {
-      setLoadingStates(prev => ({ ...prev, usage: false }));
     }
   }, [config.customer_id, apiKey]);
 
@@ -349,6 +359,59 @@ export function MetronomeProvider({
     }
   }, [config.customer_id, apiKey]);
 
+  const fetchUsageEmbeddable = useCallback(async () => {
+    console.log("fetchUsageEmbeddable called with customer_id:", config.customer_id);
+    if (!config.customer_id) {
+      console.log("No customer_id, returning early");
+      return;
+    }
+
+    setLoadingStates(prev => ({ ...prev, usageEmbeddable: true }));
+    try {
+      console.log("Calling createMetronomeEmbeddableLink...");
+      const response = await createMetronomeEmbeddableLink(
+        config.customer_id,
+        "usage",
+        apiKey, // This can be undefined, and backend will use env var
+      );
+
+      console.log("createMetronomeEmbeddableLink response:", response);
+
+      if (response.status === "success") {
+        console.log("Setting usageEmbeddableUrl to:", response.result);
+        setUsageEmbeddableUrl(response.result || null);
+      } else {
+        console.error("Failed to fetch usage embeddable:", response.message);
+      }
+    } catch (error) {
+      console.error("Error fetching usage embeddable:", error);
+    } finally {
+      setLoadingStates(prev => ({ ...prev, usageEmbeddable: false }));
+    }
+  }, [config.customer_id, apiKey]);
+
+  const fetchRawUsageData = useCallback(async () => {
+    if (!config.customer_id) return;
+
+    setLoadingStates(prev => ({ ...prev, rawUsageData: true }));
+    try {
+      const response = await fetchRawUsageDataAction(
+        config.customer_id,
+        apiKey, // This can be undefined, and backend will use env var
+      );
+
+      if (response.status === "success") {
+        setRawUsageData(response.result || null);
+      } else {
+        console.error("Failed to fetch raw usage data:", response.message);
+      }
+    } catch (error) {
+      console.error("Error fetching raw usage data:", error);
+    } finally {
+      setLoadingStates(prev => ({ ...prev, rawUsageData: false }));
+    }
+  }, [config.customer_id, apiKey]);
+
   const createSpendAlert = useCallback(async (threshold: number) => {
     if (!config.customer_id) return;
 
@@ -414,21 +477,23 @@ export function MetronomeProvider({
     config,
     balance,
     costs,
-    usage,
     currentSpend,
     alerts,
     invoices,
+    rawUsageData,
     invoiceEmbeddableUrl,
     commitsEmbeddableUrl,
+    usageEmbeddableUrl,
     loadingStates,
     fetchBalance,
     fetchCosts,
-    fetchUsage,
     fetchCurrentSpend,
     fetchAlerts,
     fetchInvoices,
+    fetchRawUsageData,
     fetchInvoiceEmbeddable,
     fetchCommitsEmbeddable,
+    fetchUsageEmbeddable,
     createSpendAlert,
     createBalanceAlert,
     deleteAlert,

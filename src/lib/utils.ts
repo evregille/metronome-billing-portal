@@ -1,15 +1,36 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
+const COIN_SYMBOLS = {
+  "USD (cents)": "$",
+  "EUR": "€",
+  "GBP": "£",
+  "JPY": "¥",
+  "KRW": "₩",
+};
+
+export function getCoinSymbol(currency_name: string): string {
+  return COIN_SYMBOLS[currency_name as keyof typeof COIN_SYMBOLS] || currency_name;
+}
+
+const divideBy100 = (currency: string): boolean => {
+  return currency  === "USD (cents)";
+}
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(amount: number): string {
-  return (amount / 100)
+export function formatCurrency(amount: number | string, currency_name: string = ""): string {
+  const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+  if (isNaN(numericAmount)) return "0.00";
+  
+  const value = (divideBy100(currency_name) ? (numericAmount / 100) : numericAmount)
     .toFixed(2)
     .toString()
     .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const symbol = COIN_SYMBOLS[currency_name as keyof typeof COIN_SYMBOLS] || undefined;
+  return (symbol) ? `${symbol}${value}` : `${value} ${currency_name}`;
 }
 
 export function formatDate(input: string | number): string {

@@ -51,6 +51,7 @@ type ApiResponse<T> =
 type BalanceResult = {
   total_granted: number;
   total_used: number;
+  currency_name: string;
   processed_grants: Array<{
     id: string;
     type: string;
@@ -60,19 +61,18 @@ type BalanceResult = {
     remaining: number;
   }>;
 };
+
 type InvoiceBreakdownResult = {
   costs: {
     products: Record<string, any>;
     items: Array<any>;
-  };
-  usage: {
-    products: Record<string, any>;
-    items: Array<any>;
+    currency_name: string;
   };
 };
+
 type SpendResult = {
-  total: number;
-  productTotals: Record<string, number>;
+  total: Record<string, number>;
+  productTotals: Record<string, { total: number; currency_name: string }>;
 };
 
 type InvoiceListBreakdownsResponse = {
@@ -208,7 +208,12 @@ export async function fetchMetronomeCustomerBalance(
 
     return {
       status: "success",
-      result: { total_granted, total_used, processed_grants },
+      result: { 
+        total_granted, 
+        total_used, 
+        processed_grants, 
+        currency_name: response.data[0]?.access_schedule?.credit_type?.name || "USD",
+      },
     };
   } catch (error) {
     return {
@@ -249,12 +254,14 @@ export async function fetchMetronomeInvoiceBreakdown(
     }
 
     const usageData = data.filter((el) => el.type === "USAGE");
-
+    
+    const costsData = retrieveCost(usageData);
+    console.log("retrieveCost result:", costsData);
+    
     return {
       status: "success",
       result: {
-        costs: retrieveCost(usageData),
-        usage: retrieveUsage(usageData),
+        costs: costsData,
       },
     };
   } catch (error) {
@@ -400,19 +407,28 @@ export async function fetchCurrentSpendDraftInvoice(
       customer_id: customer_id,
       status: "DRAFT",
     });
-    let total = 0,
-      productTotals: Record<string, number> = {};
+    // console.log(invoices.data[0].credit_type);
+    const total: Record<string, number> = {};
+    const productTotals: Record<string, { total: number; currency_name: string }> = {};
     if (invoices?.data) {
       // Calculate total amount from all line items (before commits and credits)
       invoices.data.forEach((inv) => {
         inv.line_items.forEach((item: any) => {
+          const currency_name = item.credit_type.name;
           // Only include positive line items (charges, not credits)
           if (item.total > 0) {
-            total += item.total;
+            // Add to currency-specific total
+            total[currency_name] = (total[currency_name] || 0) + item.total;
             // Normalize product name to group tiers together
             const normalizedName = normalizeProductName(item.name);
-            productTotals[normalizedName] =
-              (productTotals[normalizedName] || 0) + item.total;
+            if (productTotals[normalizedName]) {
+              productTotals[normalizedName].total += item.total;
+            } else {
+              productTotals[normalizedName] = {
+                total: item.total,
+                currency_name: currency_name
+              };
+            }
           }
         });
       });
@@ -503,6 +519,7 @@ const normalizeProductName = (productName: string): string => {
 const retrieveCost = (breakdowns: Array<any>): any => {
   const products: Record<string, any> = {};
   const items: Array<any> = [];
+  let currency_name : string = "";
 
   breakdowns.forEach((breakdown) => {
     if (!breakdown.line_items) return;
@@ -512,17 +529,19 @@ const retrieveCost = (breakdowns: Array<any>): any => {
 
     breakdown.line_items.forEach((line: any) => {
       // Skip non-usage products and credits
+      
       if (line.total < 0 || line.product_type !== "UsageProductListItem")
         return;
       // Normalize product name to group tiers together
       const normalizedName = normalizeProductName(line.name);
+      currency_name = line.credit_type.name;
 
       // Initialize product if not exists
       if (!products[normalizedName]) products[normalizedName] = {};
 
       // Add to product totals
       product_names[normalizedName] =
-        (product_names[normalizedName] || 0) + line.total / 100;
+        (product_names[normalizedName] || 0) + line.total ;
 
       // Process pricing group values
       if (
@@ -534,7 +553,7 @@ const retrieveCost = (breakdowns: Array<any>): any => {
           dimensions,
           products,
           normalizedName,
-          line.total / 100,
+          line.total ,
         );
       }
 
@@ -554,7 +573,7 @@ const retrieveCost = (breakdowns: Array<any>): any => {
     });
 
     items.push({
-      total: breakdown.total / 100,
+      total: breakdown.total ,
       ...dimensions,
       ...product_names,
       starting_on: breakdown.breakdown_start_timestamp,
@@ -562,72 +581,11 @@ const retrieveCost = (breakdowns: Array<any>): any => {
       line_items: breakdown.line_items, // Add line_items to preserve original data
     });
   });
-  return { products, items };
-};
-function retrieveUsage(breakdowns: Array<any>): any {
-  const products: Record<string, any> = {};
-  const items: Array<any> = [];
-
-  breakdowns.forEach((breakdown) => {
-    
-    if (!breakdown.line_items) return;
-
-    const dimensions: Record<string, number> = {};
-    const product_names: Record<string, number> = {};
-
-    breakdown.line_items.forEach((line: any) => {
-      // Skip non-usage products and credits
-      if (line.total < 0 || line.product_type !== "UsageProductListItem")
-        return;
-
-      // Normalize product name to group tiers together
-      const normalizedName = normalizeProductName(line.name);
-
-      // Initialize product if not exists
-      if (!products[normalizedName]) products[normalizedName] = {};
-
-      // Add to product totals (using quantity instead of total)
-      product_names[normalizedName] =
-        (product_names[normalizedName] || 0) + line.quantity;
-
-      // Process pricing group values
-      if (
-        line.pricing_group_values &&
-        Object.keys(line.pricing_group_values).length > 0
-      ) {
-        processGroupValues(
-          line.pricing_group_values,
-          dimensions,
-          products,
-          normalizedName,
-          line.quantity,
-        );
-      }
-
-      // Process presentation group values
-      if (
-        line.presentation_group_values &&
-        Object.keys(line.presentation_group_values).length > 0
-      ) {
-        processGroupValues(
-          line.presentation_group_values,
-          dimensions,
-          products,
-          normalizedName,
-          line.quantity,
-        );
-      }
-    });
-
-    items.push({
-      ...dimensions,
-      ...product_names,
-      starting_on: breakdown.breakdown_start_timestamp,
-      type: breakdown.type,
-    });
-  });
-
-  return { items, products };
+  return { 
+    products, 
+    items , 
+    currency_name, // TODO : add support for multiple currencies
+  };
 }
 
 function processGroupValues(
@@ -650,4 +608,72 @@ function processGroupValues(
       products[productName][key].push(groupValue);
     }
   });
+}
+
+export async function fetchRawUsageData(customer_id: string, api_key?: string): Promise<ApiResponse<any>> {  
+  try {
+    const client = getMetronomeClient(api_key);
+    const { start, end } = interval(30);
+    // First, get all billable metrics for the customer
+    const billableMetricsResponse = await client.v1.customers.listBillableMetrics({
+      customer_id: customer_id,
+    });
+    
+    const billableMetrics = billableMetricsResponse.data;
+    const usageResults = [];
+    
+    // For each billable metric, fetch its usage data
+    for (const metric of billableMetrics) {
+      try {
+        const usageResponse = await client.v1.usage.listWithGroups({
+          customer_id: customer_id,
+          billable_metric_id: metric.id,
+          window_size: "DAY",
+          starting_on: new Date(start).toISOString(),
+          ending_before: new Date(end).toISOString(),
+        });
+        
+        // Calculate aggregated value (sum of all usage entries)
+        const aggregatedValue = usageResponse.data.reduce((sum, entry) => {
+          return sum + (entry.value || 0);
+        }, 0);
+        
+        usageResults.push({
+          billable_metric: {
+            id: metric.id,
+            name: metric.name,
+          },
+          raw_usage_data: usageResponse.data,
+          aggregated_value: aggregatedValue,
+          total_entries: usageResponse.data.length,
+        });
+      } catch (metricError) {
+        // Continue with other metrics even if one fails
+        usageResults.push({
+          billable_metric: {
+            id: metric.id,
+            name: metric.name
+          },
+          raw_usage_data: [],
+          aggregated_value: 0,
+          total_entries: 0,
+          error: metricError instanceof Error ? metricError.message : "Unknown error",
+        });
+      }
+    }
+    
+    return { 
+      status: "success", 
+      result: {
+        customer_id,
+        total_metrics: billableMetrics.length,
+        usage_data: usageResults,
+      }
+    };
+  } catch (error) {
+    return { 
+      status: "error", 
+      message: error instanceof Error ? error.message : "Unknown error" 
+    };
+  }
 }

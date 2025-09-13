@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useMetronome } from "@/hooks/use-metronome-config";
-import { formatCurrency } from "@/lib/utils";
-import { DollarSign, Package, Bell, Trash2, Plus } from "lucide-react";
+import { formatCurrency, getCoinSymbol } from "@/lib/utils";
+import { DollarSign, Package, Bell, Trash2,  } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -20,7 +20,7 @@ export function Spend() {
   
   const [isEditingAlert, setIsEditingAlert] = useState(false);
   const [alertThreshold, setAlertThreshold] = useState(1000);
-  const [alertEnabled, setAlertEnabled] = useState(true);
+  const [, setAlertEnabled] = useState(true);
 
   useEffect(() => {
     (async () => {
@@ -38,18 +38,20 @@ export function Spend() {
     }
   }, [alerts?.spendAlert]);
 
-  const totalSpend = currentSpend?.total || 0;
+  // Calculate total spend across all currencies
+  const totalSpendByCurrency = currentSpend?.total || {};
+  const totalSpend = Object.values(totalSpendByCurrency).reduce((sum, amount) => sum + amount, 0);
   const productCount = currentSpend?.productTotals ? Object.keys(currentSpend.productTotals).length : 0;
-
   // Prepare data for horizontal stacked bar
   const chartData = currentSpend?.productTotals ? 
-    Object.entries(currentSpend.productTotals).map(([productName, total]) => {
-      const percentage = totalSpend > 0 ? (total / totalSpend) * 100 : 0;
+    Object.entries(currentSpend.productTotals).map(([productName, productData]) => {
+      const percentage = totalSpend > 0 ? (productData.total / totalSpend) * 100 : 0;
       return {
         name: productName,
-        value: total,
+        value: productData.total,
         percentage: percentage,
-        formattedValue: formatCurrency(total)
+        formattedValue: formatCurrency(productData.total, productData.currency_name),
+        currency: productData.currency_name
       };
     }) : [];
 
@@ -96,7 +98,6 @@ export function Spend() {
     }
   };
 
-  console.log(alerts);
 
   return (
     <div className="glass-card card-hover rounded-2xl p-6">
@@ -106,14 +107,24 @@ export function Spend() {
             <DollarSign className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Current Spend</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Spend</h3>
             <p className="text-sm text-gray-600">This billing period</p>
           </div>
         </div>
         <div className="text-right">
-          <div className="text-3xl font-bold text-gray-900">
-            {formatCurrency(totalSpend)}
-          </div>
+          {Object.keys(totalSpendByCurrency).length > 0 ? (
+            <div className="space-y-1">
+              {Object.entries(totalSpendByCurrency).map(([currency, amount]) => (
+                <div key={currency} className="text-2xl font-bold text-gray-900">
+                  {formatCurrency(amount, currency)}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-3xl font-bold text-gray-900">
+              {formatCurrency(totalSpend)}
+            </div>
+          )}
           <div className="text-sm text-gray-600">{productCount} products</div>
         </div>
       </div>
@@ -150,7 +161,10 @@ export function Spend() {
                     className="w-4 h-4 rounded-full" 
                     style={{ backgroundColor: colors[index % colors.length] }}
                   ></div>
-                  <span className="text-sm font-medium text-gray-900">{item.name}</span>
+                  <div>
+                    <span className="text-sm font-medium text-gray-900">{item.name}</span>
+                    {/* <span className="text-xs text-gray-500 ml-2">({item.currency})</span> */}
+                  </div>
                 </div>
                 <div className="flex items-center space-x-4">
                   <span className="text-sm font-semibold text-gray-900">{item.formattedValue}</span>
@@ -234,7 +248,7 @@ export function Spend() {
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <h5 className="font-medium text-gray-900">Control your spending</h5>
+                  <h5 className="font-medium text-gray-900">Control how much you spend</h5>
                   <p className="text-sm text-gray-600">Receive a notification when your spending reaches a threshold</p>
                 </div>
                 <Button
@@ -253,7 +267,7 @@ export function Spend() {
                       Alert when spending reaches:
                     </Label>
                     <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-500">$</span>
+                      <span className="text-sm text-gray-500">{getCoinSymbol(Object.entries(totalSpendByCurrency)[0][0])}</span>
                       <Input
                         id="spend-threshold"
                         type="number"
