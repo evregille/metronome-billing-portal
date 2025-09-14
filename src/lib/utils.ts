@@ -3,10 +3,26 @@ import { twMerge } from "tailwind-merge";
 
 const COIN_SYMBOLS = {
   "USD (cents)": "$",
+  "USD": "$",
   "EUR": "€",
   "GBP": "£",
   "JPY": "¥",
   "KRW": "₩",
+  "CAD": "$",
+  "AUD": "$",
+  "NZD": "$",
+  "CHF": "₣",
+  "SEK": "kr",
+  "NOK": "kr",
+  "DKK": "kr",
+  "SGD": "$",
+  "HKD": "$",
+  "MXN": "$",
+  "BRL": "R$",
+  "INR": "₹",
+  "CNY": "¥",
+  "ZAR": "R",
+  "RUB": "₽",
 };
 
 export function getCoinSymbol(currency_name: string): string {
@@ -23,13 +39,14 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatCurrency(amount: number | string, currency_name: string = ""): string {
   const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-  if (isNaN(numericAmount)) return "0.00";
+  const symbol = COIN_SYMBOLS[currency_name as keyof typeof COIN_SYMBOLS] || undefined;
+
+  if (isNaN(numericAmount)) return (symbol) ? `${symbol}0.00` : `0.00 ${currency_name}`;
   
   const value = (divideBy100(currency_name) ? (numericAmount / 100) : numericAmount)
     .toFixed(2)
     .toString()
     .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  const symbol = COIN_SYMBOLS[currency_name as keyof typeof COIN_SYMBOLS] || undefined;
   return (symbol) ? `${symbol}${value}` : `${value} ${currency_name}`;
 }
 

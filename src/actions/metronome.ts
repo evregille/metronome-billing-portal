@@ -52,6 +52,7 @@ type BalanceResult = {
   total_granted: number;
   total_used: number;
   currency_name: string;
+  currency_id: string;
   processed_grants: Array<{
     id: string;
     type: string;
@@ -213,6 +214,7 @@ export async function fetchMetronomeCustomerBalance(
         total_used, 
         processed_grants, 
         currency_name: response.data[0]?.access_schedule?.credit_type?.name || "USD",
+        currency_id: response.data[0]?.access_schedule?.credit_type?.id || "2714e483-4ff1-48e4-9e25-ac732e8f24f2",
       },
     };
   } catch (error) {
@@ -256,7 +258,6 @@ export async function fetchMetronomeInvoiceBreakdown(
     const usageData = data.filter((el) => el.type === "USAGE");
     
     const costsData = retrieveCost(usageData);
-    console.log("retrieveCost result:", costsData);
     
     return {
       status: "success",
@@ -674,6 +675,103 @@ export async function fetchRawUsageData(customer_id: string, api_key?: string): 
     return { 
       status: "error", 
       message: error instanceof Error ? error.message : "Unknown error" 
+    };
+  }
+}
+
+
+export async function rechargeBalance(
+  customer_id: string,
+  recharge_amount: number,
+  currency_id: string,
+  recharge_product_id: string,
+  api_key?: string,
+): Promise<ApiResponse<any>> {
+  try {
+    
+    
+    const client = getMetronomeClient(api_key);
+    
+    // First, fetch the list of contracts for the customer
+    const contractsResponse = await client.v2.contracts.list({
+      customer_id: customer_id,
+    });
+    
+    
+    // Find a contract with Stripe billing configuration
+    const contractWithStripe = contractsResponse.data.find((contract: any) => {
+      return contract.customer_billing_provider_configuration && 
+             contract.customer_billing_provider_configuration.billing_provider === 'stripe';
+    });
+    
+    if (!contractWithStripe) {
+      return {
+        status: "error",
+        message: "No contract found with Stripe billing configuration for this customer",
+      };
+    }
+  
+    
+    // Calculate dates for the commit (rounded to the hour)
+    const now = new Date();
+    now.setMinutes(0, 0, 0); // Round to the current hour
+    const oneYearFromNow = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+    oneYearFromNow.setMinutes(0, 0, 0); // Round to the hour
+    
+    // Create the recharge commit payload
+    const rechargePayload = {
+      customer_id: customer_id,
+      contract_id: contractWithStripe.id,
+      add_commits: [
+        {
+          product_id: recharge_product_id,
+          type: "PREPAID" as const, 
+          name: "Recharge",
+          access_schedule: {
+            credit_type_id: currency_id,
+            schedule_items: [
+              {
+                amount: recharge_amount,
+                ending_before: oneYearFromNow.toISOString(),
+                starting_at: now.toISOString(),
+              }
+            ]
+          },
+          // invoice_schedule: {
+          //   schedule_items: [
+          //     {
+          //       amount: recharge_amount,
+          //       timestamp: now.toISOString(),
+          //     }
+          //   ]
+          // },
+          priority: 10,
+          payment_gate_config: {
+            payment_gate_type: "STRIPE" as const,
+            stripe_config: {
+              payment_type: "INVOICE" as const,
+            }
+          }
+        }
+      ]
+    };
+    
+    // Edit the contract to add the commit
+    const editResponse = await client.v2.contracts.edit(rechargePayload);
+    
+    return {
+      status: "success",
+      result: {
+        contract_id: contractWithStripe.id,
+        recharge_amount: recharge_amount,
+        commit_data: editResponse.data,
+      },
+    };
+  } catch (error) {
+    console.error("Error recharging balance:", error);
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Unknown error occurred while recharging balance",
     };
   }
 }

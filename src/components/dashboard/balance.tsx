@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { formatCurrency, getCoinSymbol } from "@/lib/utils";
 import { Wallet, Package, CheckCircle, ExternalLink, Loader2, Bell, Trash2 } from "lucide-react";
+import { RechargeModal } from "@/components/recharge-modal";
 
 export function Balance() {
   const { 
@@ -17,16 +18,19 @@ export function Balance() {
     fetchBalance, 
     fetchCommitsEmbeddable, 
     fetchAlerts,
+    rechargeBalance,
     createBalanceAlert,
     deleteAlert,
     commitsEmbeddableUrl, 
-    loadingStates 
+    loadingStates,
+    rechargeProductId
   } = useMetronome();
   
   const [showEmbeddable, setShowEmbeddable] = useState(false);
   const [isEditingAlert, setIsEditingAlert] = useState(false);
   const [alertThreshold, setAlertThreshold] = useState(1000);
   const [, setAlertEnabled] = useState(true);
+  const [showRechargeModal, setShowRechargeModal] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -86,6 +90,24 @@ export function Balance() {
     }
   };
 
+  const handleRecharge = async (amount: number) => {
+    try {
+      await rechargeBalance(amount);
+      return {
+        success: true,
+        message: `Successfully recharged ${formatCurrency(amount, balance?.currency_name || "USD")} to your account.`
+      };
+    } catch (error) {
+      // The error message from the hook should already be user-friendly
+      const errorMessage = error instanceof Error ? error.message : "Failed to recharge balance. Please try again.";
+      
+      return {
+        success: false,
+        message: errorMessage
+      };
+    }
+  };
+
   const getAlertStatusColor = (status?: string | null) => {
     switch (status) {
       case 'ok': return 'text-green-600 bg-green-100';
@@ -122,7 +144,16 @@ export function Balance() {
             <div className="text-3xl font-bold text-gray-900">
               {formatCurrency(balance.total_granted - balance.total_used, balance.currency_name)}
             </div>
-            <div className="text-sm text-gray-600">remaining</div>
+            <div className="text-sm text-gray-600 mb-3">remaining</div>
+
+            {/* Recharge Button */}
+              <Button 
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-4 py-1.5 rounded-lg font-medium shadow-lg transition-all duration-200 text-sm"
+                onClick={() => setShowRechargeModal(true)}
+              >
+                <Wallet className="w-3 h-3 mr-1.5" />
+                Recharge
+              </Button>
           </div>
         )}
       </div>
@@ -376,6 +407,16 @@ export function Balance() {
           </div>
         </div>
       </div>
+
+      {/* Recharge Modal */}
+      <RechargeModal
+        isOpen={showRechargeModal}
+        onClose={() => setShowRechargeModal(false)}
+        onRecharge={handleRecharge}
+        currencyName={balance?.currency_name || "USD"}
+        currentBalance={balance ? balance.total_granted - balance.total_used : 0}
+        rechargeProductId={rechargeProductId}
+      />
     </div>
   );
 }

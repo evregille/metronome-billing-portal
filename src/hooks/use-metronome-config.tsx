@@ -18,6 +18,7 @@ import {
   fetchMetronomeCustomerBalance,
   fetchMetronomeInvoiceBreakdown,
   fetchRawUsageData as fetchRawUsageDataAction,
+  rechargeBalance as rechargeBalanceAction,
 } from "@/actions/metronome";
 
 // Types based on the backend API
@@ -29,6 +30,7 @@ interface Balance {
   total_granted: number;
   total_used: number;
   currency_name: string;
+  currency_id: string;
   processed_grants: Array<{
     id: string;
     type: string;
@@ -40,7 +42,7 @@ interface Balance {
 }
 
 interface BreakdownData {
-  currency_name: string | undefined;
+  currency_name: string;
   products: Record<string, any>;
   items: Array<{
     id: string;
@@ -134,12 +136,14 @@ interface MetronomeContextType {
   commitsEmbeddableUrl: string | null;
   usageEmbeddableUrl: string | null;
   loadingStates: LoadingStates;
+  rechargeProductId?: string;
   fetchBalance: () => Promise<void>;
   fetchCosts: () => Promise<void>;
   fetchCurrentSpend: () => Promise<void>;
   fetchAlerts: () => Promise<void>;
   fetchInvoices: () => Promise<void>;
   fetchRawUsageData: () => Promise<void>;
+  rechargeBalance: (rechargeAmount: number) => Promise<void>;
   fetchInvoiceEmbeddable: () => Promise<void>;
   fetchCommitsEmbeddable: () => Promise<void>;
   fetchUsageEmbeddable: () => Promise<void>;
@@ -153,11 +157,13 @@ const MetronomeContext = createContext<MetronomeContextType | undefined>(undefin
 export function MetronomeProvider({ 
   children, 
   customerId,
-  apiKey 
+  apiKey,
+  rechargeProductId
 }: { 
   children: React.ReactNode;
   customerId: string;
   apiKey?: string;
+  rechargeProductId?: string;
 }) {
   const [config, setConfig] = useState<MetronomeConfig>({
     customer_id: customerId,
@@ -238,7 +244,6 @@ export function MetronomeProvider({
       );
 
       if (response.status === "success") {
-        console.log("fetchCosts response.result.costs:", response.result.costs);
         setCosts(response.result.costs);
       } else {
         console.error("Failed to fetch costs:", response.message);
@@ -412,6 +417,46 @@ export function MetronomeProvider({
     }
   }, [config.customer_id, apiKey]);
 
+  const rechargeBalance = useCallback(async (rechargeAmount: number) => {
+  
+
+    try {
+      // Check if balance data is available
+      if (!balance) {
+        throw new Error("Balance information is not available. Please refresh the page and try again.");
+      }
+
+      // Check if currency_id is available in balance
+      if (!balance.currency_id) {
+        throw new Error("Currency information is not available in your balance data. Please ensure your account has proper currency configuration.");
+      }
+
+      // Check if recharge product ID is configured
+      if (!rechargeProductId) {
+        throw new Error("Recharge Product ID is not configured. Please set up a recharge product ID in your settings to enable balance recharging.");
+      }
+
+      const response = await rechargeBalanceAction(
+        config.customer_id,
+        rechargeAmount,
+        balance.currency_id,
+        rechargeProductId, // Pass the recharge product ID from settings
+        apiKey, // This can be undefined, and backend will use env var
+      );
+
+      if (response.status === "success") {
+        // Refresh balance data after successful recharge
+        await fetchBalance();
+      } else {
+        console.error("Failed to recharge balance:", response.message);
+        throw new Error(response.message || "Failed to recharge balance");
+      }
+    } catch (error) {
+      console.error("Error recharging balance:", error);
+      throw error; // Re-throw so the modal can handle it
+    }
+  }, [config.customer_id, apiKey, rechargeProductId, balance, fetchBalance]);
+
   const createSpendAlert = useCallback(async (threshold: number) => {
     if (!config.customer_id) return;
 
@@ -485,12 +530,14 @@ export function MetronomeProvider({
     commitsEmbeddableUrl,
     usageEmbeddableUrl,
     loadingStates,
+    rechargeProductId,
     fetchBalance,
     fetchCosts,
     fetchCurrentSpend,
     fetchAlerts,
     fetchInvoices,
     fetchRawUsageData,
+    rechargeBalance,
     fetchInvoiceEmbeddable,
     fetchCommitsEmbeddable,
     fetchUsageEmbeddable,

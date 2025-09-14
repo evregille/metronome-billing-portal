@@ -13,10 +13,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Settings, Eye, EyeOff, Check, X, Building2 } from "lucide-react";
+import { Settings, Eye, EyeOff, Check, X, Building2, CreditCard } from "lucide-react";
 
 const METRONOME_API_KEY_STORAGE_KEY = "metronome_api_key";
 const BUSINESS_NAME_STORAGE_KEY = "business_name";
+const RECHARGE_PRODUCT_ID_STORAGE_KEY = "recharge_product_id";
 
 // Get default business name from environment variable
 const DEFAULT_BUSINESS_NAME = process.env.NEXT_PUBLIC_DEFAULT_BUSINESS_NAME || "AcmeCorp";
@@ -24,12 +25,14 @@ const DEFAULT_BUSINESS_NAME = process.env.NEXT_PUBLIC_DEFAULT_BUSINESS_NAME || "
 interface SettingsModalProps {
   onApiKeyChange?: (apiKey: string) => void;
   onBusinessNameChange?: (businessName: string) => void;
+  onRechargeProductIdChange?: (rechargeProductId: string) => void;
 }
 
-export function SettingsModal({ onApiKeyChange, onBusinessNameChange }: SettingsModalProps) {
+export function SettingsModal({ onApiKeyChange, onBusinessNameChange, onRechargeProductIdChange }: SettingsModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [apiKey, setApiKey] = useState("");
   const [businessName, setBusinessName] = useState("");
+  const [rechargeProductId, setRechargeProductId] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [validationStatus, setValidationStatus] = useState<"idle" | "success" | "error">("idle");
@@ -38,6 +41,7 @@ export function SettingsModal({ onApiKeyChange, onBusinessNameChange }: Settings
   useEffect(() => {
     const storedApiKey = localStorage.getItem(METRONOME_API_KEY_STORAGE_KEY);
     const storedBusinessName = localStorage.getItem(BUSINESS_NAME_STORAGE_KEY);
+    const storedRechargeProductId = localStorage.getItem(RECHARGE_PRODUCT_ID_STORAGE_KEY);
     
     if (storedApiKey) {
       setApiKey(storedApiKey);
@@ -47,6 +51,9 @@ export function SettingsModal({ onApiKeyChange, onBusinessNameChange }: Settings
     } else {
       // Set default business name from environment variable
       setBusinessName(DEFAULT_BUSINESS_NAME);
+    }
+    if (storedRechargeProductId) {
+      setRechargeProductId(storedRechargeProductId);
     }
   }, []);
 
@@ -72,12 +79,14 @@ export function SettingsModal({ onApiKeyChange, onBusinessNameChange }: Settings
         // Save to localStorage
         localStorage.setItem(METRONOME_API_KEY_STORAGE_KEY, apiKey.trim());
         localStorage.setItem(BUSINESS_NAME_STORAGE_KEY, businessName);
+        localStorage.setItem(RECHARGE_PRODUCT_ID_STORAGE_KEY, rechargeProductId);
         
         setValidationStatus("success");
         
         // Notify parent components
         onApiKeyChange?.(apiKey.trim());
         onBusinessNameChange?.(businessName);
+        onRechargeProductIdChange?.(rechargeProductId);
         
         // Dispatch custom event to notify customer context
         window.dispatchEvent(new CustomEvent('apiKeyChanged'));
@@ -100,11 +109,14 @@ export function SettingsModal({ onApiKeyChange, onBusinessNameChange }: Settings
   const handleClear = () => {
     localStorage.removeItem(METRONOME_API_KEY_STORAGE_KEY);
     localStorage.removeItem(BUSINESS_NAME_STORAGE_KEY);
+    localStorage.removeItem(RECHARGE_PRODUCT_ID_STORAGE_KEY);
     setApiKey("");
     setBusinessName(DEFAULT_BUSINESS_NAME);
+    setRechargeProductId("");
     setValidationStatus("idle");
     onApiKeyChange?.("");
     onBusinessNameChange?.(DEFAULT_BUSINESS_NAME);
+    onRechargeProductIdChange?.("");
   };
 
   const getValidationIcon = () => {
@@ -166,6 +178,24 @@ export function SettingsModal({ onApiKeyChange, onBusinessNameChange }: Settings
             />
             <p className="text-xs text-gray-500">
               This will be displayed in the dashboard header and branding.
+            </p>
+          </div>
+
+          {/* Recharge Product ID Section */}
+          <div className="space-y-2">
+            <Label htmlFor="recharge-product-id" className="flex items-center space-x-2">
+              <CreditCard className="w-4 h-4" />
+              <span>Recharge Product ID (optional)</span>
+            </Label>
+            <Input
+              id="recharge-product-id"
+              type="text"
+              value={rechargeProductId}
+              onChange={(e) => setRechargeProductId(e.target.value)}
+              placeholder="Metronome Commit product ID for recharges "
+            />
+            <p className="text-xs text-gray-500">
+              This product ID will be used when creating recharge commits.
             </p>
           </div>
 

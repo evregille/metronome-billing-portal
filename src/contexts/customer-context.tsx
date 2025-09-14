@@ -28,6 +28,9 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
   const loadCustomers = useCallback(async () => {
     try {
       setLoading(true);
+      // Clear selected customer immediately when loading new customers
+      setSelectedCustomer(null);
+      
       // Get API key from localStorage (can be null/undefined)
       const apiKey = localStorage.getItem("metronome_api_key");
       

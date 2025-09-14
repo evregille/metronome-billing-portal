@@ -17,18 +17,21 @@ const BUSINESS_NAME_STORAGE_KEY = "business_name";
 const DEFAULT_BUSINESS_NAME = process.env.NEXT_PUBLIC_DEFAULT_BUSINESS_NAME || "AcmeCorp";
 
 function DashboardContent() {
-  const { selectedCustomer, loading } = useCustomer();
+  const { selectedCustomer, loading, customers } = useCustomer();
   const [isLoading, setIsLoading] = useState(true);
   const [apiKey, setApiKey] = useState<string | undefined>(undefined);
   const [businessName, setBusinessName] = useState(DEFAULT_BUSINESS_NAME);
+  const [rechargeProductId, setRechargeProductId] = useState<string>("");
 
   useEffect(() => {
     // Load settings from localStorage on mount
     const storedApiKey = localStorage.getItem("metronome_api_key");
     const storedBusinessName = localStorage.getItem(BUSINESS_NAME_STORAGE_KEY);
+    const storedRechargeProductId = localStorage.getItem("recharge_product_id");
     
     setApiKey(storedApiKey || undefined);
     setBusinessName(storedBusinessName || DEFAULT_BUSINESS_NAME);
+    setRechargeProductId(storedRechargeProductId || "");
     setIsLoading(false);
   }, []);
 
@@ -43,6 +46,11 @@ function DashboardContent() {
   const handleBusinessNameChange = (newBusinessName: string) => {
     setBusinessName(newBusinessName);
     // No need to refresh the page for business name changes
+  };
+
+  const handleRechargeProductIdChange = (newRechargeProductId: string) => {
+    setRechargeProductId(newRechargeProductId);
+    // No need to refresh the page for recharge product ID changes
   };
 
   if (isLoading) {
@@ -81,6 +89,7 @@ function DashboardContent() {
               <SettingsModal 
                 onApiKeyChange={handleApiKeyChange}
                 onBusinessNameChange={handleBusinessNameChange}
+                onRechargeProductIdChange={handleRechargeProductIdChange}
               />
               <div className="px-4 py-2 bg-green-100 text-green-800 rounded-full text-sm font-medium">
                 <span className="w-2 h-2 bg-green-500 rounded-full inline-block mr-2"></span>
@@ -107,7 +116,11 @@ function DashboardContent() {
       {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
         {selectedCustomer ? (
-          <MetronomeProvider customerId={selectedCustomer.metronome_customer_id} apiKey={apiKey}>
+          <MetronomeProvider 
+            customerId={selectedCustomer.metronome_customer_id} 
+            apiKey={apiKey}
+            rechargeProductId={rechargeProductId}
+          >
             <div className="space-y-8">
               {/* Top Row */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -126,7 +139,7 @@ function DashboardContent() {
 
             </div>
           </MetronomeProvider>
-        ) : (
+        ) : loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
               <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -134,6 +147,26 @@ function DashboardContent() {
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Loading Customers</h3>
               <p className="text-gray-600">Fetching customer data from Metronome...</p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Customers Found</h3>
+              <p className="text-gray-600 mb-4">
+                No customers were found for the current API key. Please check your API key or create a customer in Metronome.
+              </p>
+              <button 
+                onClick={() => window.location.reload()} 
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Retry
+              </button>
             </div>
           </div>
         )}
