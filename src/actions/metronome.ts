@@ -408,7 +408,7 @@ export async function fetchCurrentSpendDraftInvoice(
       customer_id: customer_id,
       status: "DRAFT",
     });
-    // console.log(invoices.data[0].credit_type);
+
     const total: Record<string, number> = {};
     const productTotals: Record<string, { total: number; currency_name: string }> = {};
     if (invoices?.data) {
@@ -497,12 +497,14 @@ export async function fetchMetronomeCustomers(
 
 const interval = (days: number): any => {
   const now = new Date();
-  // Round current time to the next hour in UTC
-  const now_utc_next_hour = Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate(),
-    now.getUTCHours() + 1, // Round up to next hour
+  // Round current time to next day's UTC midnight
+  const nextDay = new Date(now);
+  nextDay.setUTCDate(nextDay.getUTCDate() + 1); // Add one day
+  const now_utc_next_midnight = Date.UTC(
+    nextDay.getUTCFullYear(),
+    nextDay.getUTCMonth(),
+    nextDay.getUTCDate(),
+    0, // 0 hours (midnight)
     0, // 0 minutes
     0, // 0 seconds
     0  // 0 milliseconds
@@ -514,7 +516,7 @@ const interval = (days: number): any => {
     previous.getUTCMonth(),
     previous.getUTCDate(),
   );
-  return { start: previous_utc_midnight, end: now_utc_next_hour };
+  return { start: previous_utc_midnight, end: now_utc_next_midnight };
 };
 
 // Helper function to normalize product names by removing tier suffixes
@@ -654,6 +656,7 @@ export async function fetchRawUsageData(customer_id: string, api_key?: string): 
           aggregated_value: aggregatedValue,
           total_entries: usageResponse.data.length,
         });
+        
       } catch (metricError) {
         // Continue with other metrics even if one fails
         usageResults.push({
@@ -668,7 +671,6 @@ export async function fetchRawUsageData(customer_id: string, api_key?: string): 
         });
       }
     }
-    
     return { 
       status: "success", 
       result: {
