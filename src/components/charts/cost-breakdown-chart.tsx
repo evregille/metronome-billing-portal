@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { useMetronome } from "@/hooks/use-metronome-config";
 import { formatCurrency } from "@/lib/utils";
@@ -32,29 +32,20 @@ export function CostBreakdownChart() {
   const [dimensions, setDimensions] = useState<DimensionData[]>([]);
 
   // Define colors for different dimensions
-  const dimensionColors = [
+  const dimensionColors = useMemo(() => [
     '#3b82f6', // Blue
     '#10b981', // Green
     '#f59e0b', // Amber
     '#ef4444', // Red
     '#8b5cf6', // Purple
     '#6366f1', // Indigo
-  ];
+  ], []);
 
   useEffect(() => {
     (async () => {
       await fetchCosts();
     })();
   }, [fetchCosts]);
-
-  // Reset filter selections when costs data changes (e.g., customer change)
-  useEffect(() => {
-    if (costs?.products) {
-      // Reset selections when costs data changes
-      setSelectedProduct("");
-      setSelectedProperty("");
-    }
-  }, [costs]);
 
   // Process available products and properties from costs data
   useEffect(() => {
@@ -72,12 +63,12 @@ export function CostBreakdownChart() {
       
       setAvailableProducts([allProductsOption, ...products]);
       
+      // Reset selections when costs data changes (e.g., customer change)
       // Set default selection to "All Products" if none selected
-      if (!selectedProduct) {
-        setSelectedProduct("All Products");
-      }
+      setSelectedProduct("All Products");
+      setSelectedProperty("");
     }
-  }, [costs, selectedProduct]);
+  }, [costs]);
 
   // Update available properties when product changes
   useEffect(() => {
@@ -124,7 +115,7 @@ export function CostBreakdownChart() {
       }));
       setDimensions(dimensionData);
     }
-  }, [selectedProduct, selectedProperty, costs]);
+  }, [selectedProduct, selectedProperty, costs, dimensionColors]);
 
   // Process chart data based on selected filters
   useEffect(() => {
@@ -134,6 +125,7 @@ export function CostBreakdownChart() {
           date: new Date(item.starting_on).toLocaleDateString("en-US", {
             month: "short",
             day: "numeric",
+            timeZone: "UTC"
           }),
           fullDate: item.starting_on,
           rawData: item

@@ -497,18 +497,24 @@ export async function fetchMetronomeCustomers(
 
 const interval = (days: number): any => {
   const now = new Date();
-  const now_utc_midnight = Date.UTC(
+  // Round current time to the next hour in UTC
+  const now_utc_next_hour = Date.UTC(
     now.getUTCFullYear(),
     now.getUTCMonth(),
     now.getUTCDate(),
+    now.getUTCHours() + 1, // Round up to next hour
+    0, // 0 minutes
+    0, // 0 seconds
+    0  // 0 milliseconds
   );
+  
   const previous = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
   const previous_utc_midnight = Date.UTC(
     previous.getUTCFullYear(),
     previous.getUTCMonth(),
     previous.getUTCDate(),
   );
-  return { start: previous_utc_midnight, end: now_utc_midnight };
+  return { start: previous_utc_midnight, end: now_utc_next_hour };
 };
 
 // Helper function to normalize product names by removing tier suffixes
@@ -679,6 +685,60 @@ export async function fetchRawUsageData(customer_id: string, api_key?: string): 
   }
 }
 
+export async function fetchBillableMetric(
+  billable_metric_id: string,
+  api_key?: string,
+): Promise<ApiResponse<any>> {
+  try {
+    const client = getMetronomeClient(api_key);
+    const response = await client.v1.billableMetrics.retrieve({
+      billable_metric_id: billable_metric_id,
+    });
+
+    return {
+      status: "success",
+      result: response.data,
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+export async function sendUsageData(
+  customer_id: string,
+  event_type: string,
+  properties: Record<string, any>,
+  api_key?: string,
+): Promise<ApiResponse<any>> {
+  try {
+    const client = getMetronomeClient(api_key);
+    
+    // Prepare the usage data payload - the ingest function expects an array of usage objects
+    const usagePayload = {
+      customer_id: customer_id,
+      event_type:event_type,
+      transaction_id: `txn_${Date.now()}`, // Required field - generate unique transaction ID
+      timestamp: new Date().toISOString(),
+      properties: properties || {},
+    };
+    
+    await client.v1.usage.ingest([usagePayload]);
+    
+    return {
+      status: "success",
+      result: { message: "Usage data sent successfully", usage: usagePayload },
+    };
+  } catch (error) {
+    console.error("Error sending usage data:", error);
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Unknown error occurred while sending usage data",
+    };
+  }
+}
 
 export async function rechargeBalance(
   customer_id: string,

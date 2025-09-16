@@ -46,7 +46,11 @@ function fillMissingDays(data: Array<{date: string, value: number, fullDate: str
     } else {
       // Add missing day with 0 value
       filledData.push({
-        date: currentDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        date: currentDate.toLocaleDateString("en-US", { 
+          month: "short", 
+          day: "numeric",
+          timeZone: "UTC"
+        }),
         value: 0,
         fullDate: currentDate.toISOString(),
       });
@@ -72,7 +76,11 @@ export function UsageChart({ data, metricName, totalValue, color = "#3b82f6" }: 
     try {
       const date = new Date(timestamp);
       if (!isNaN(date.getTime())) {
-        dateStr = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        dateStr = date.toLocaleDateString("en-US", { 
+          month: "short", 
+          day: "numeric",
+          timeZone: "UTC"
+        });
       }
     } catch (error) {
       console.warn("Invalid timestamp:", timestamp, "for entry:", entry, error);

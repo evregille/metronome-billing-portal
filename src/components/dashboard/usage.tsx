@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useMetronome } from "@/hooks/use-metronome-config";
-import { BarChart3, Loader2, TrendingUp } from "lucide-react";
+import { BarChart3, Loader2, TrendingUp, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { UsageChart } from "@/components/charts/usage-chart";
+import { UsageDataModal } from "@/components/usage-data-modal";
 
 export function Usage() {
   const { 
@@ -19,6 +20,7 @@ export function Usage() {
   } = useMetronome();
   
   const [showEmbeddable, setShowEmbeddable] = useState(false);
+  const [showUsageDataModal, setShowUsageDataModal] = useState(false);
 
 
   useEffect(() => {
@@ -48,15 +50,26 @@ export function Usage() {
             <p className="text-sm text-gray-600">Detailed usage metrics and analytics</p>
           </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <Switch
-            id="usage-embeddable-toggle"
-            checked={showEmbeddable}
-            onCheckedChange={setShowEmbeddable}
-          />
-          <Label htmlFor="usage-embeddable-toggle" className="text-sm">
-            Show Embeddable
-          </Label>
+        <div className="flex items-center space-x-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowUsageDataModal(true)}
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white hover:text-white border-0"
+          >
+            <Send className="w-4 h-4 mr-2" />
+            Send Usage Data
+          </Button>
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="usage-embeddable-toggle"
+              checked={showEmbeddable}
+              onCheckedChange={setShowEmbeddable}
+            />
+            <Label htmlFor="usage-embeddable-toggle" className="text-sm">
+              Show Embeddable
+            </Label>
+          </div>
         </div>
       </div>
 
@@ -143,6 +156,13 @@ export function Usage() {
         )}
 
       </div>
+
+      {/* Usage Data Modal */}
+      <UsageDataModal
+        isOpen={showUsageDataModal}
+        onClose={() => setShowUsageDataModal(false)}
+        billableMetrics={rawUsageData?.usage_data?.map(data => data.billable_metric) || []}
+      />
     </div>
   );
 }

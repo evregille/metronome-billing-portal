@@ -19,6 +19,8 @@ import {
   fetchMetronomeInvoiceBreakdown,
   fetchRawUsageData as fetchRawUsageDataAction,
   rechargeBalance as rechargeBalanceAction,
+  fetchBillableMetric as fetchBillableMetricAction,
+  sendUsageData as sendUsageDataAction,
 } from "@/actions/metronome";
 
 // Types based on the backend API
@@ -150,6 +152,8 @@ interface MetronomeContextType {
   createSpendAlert: (threshold: number) => Promise<void>;
   createBalanceAlert: (threshold: number) => Promise<void>;
   deleteAlert: (alertId: string) => Promise<void>;
+  fetchBillableMetric: (billableMetricId: string) => Promise<any>;
+  sendUsageData: (event_type: string, properties:  Record<string, any>) => Promise<any>;
 }
 
 const MetronomeContext = createContext<MetronomeContextType | undefined>(undefined);
@@ -518,6 +522,48 @@ export function MetronomeProvider({
     }
   }, [apiKey, fetchAlerts]);
 
+  const fetchBillableMetric = useCallback(async (billableMetricId: string) => {
+    try {
+      const response = await fetchBillableMetricAction(
+        billableMetricId,
+        apiKey, // This can be undefined, and backend will use env var
+      );
+
+      if (response.status === "success") {
+        return response.result;
+      } else {
+        throw new Error(response.message || "Failed to fetch billable metric");
+      }
+    } catch (error) {
+      console.error("Error fetching billable metric:", error);
+      throw error;
+    }
+  }, [apiKey]);
+
+  const sendUsageData = useCallback(async (event_type: string, properties: Record<string, any> ) => {
+    if (!config.customer_id) {
+      throw new Error("Customer ID is not available. Please refresh the page and try again.");
+    }
+
+    try {
+      const response = await sendUsageDataAction(
+        config.customer_id,
+        event_type,
+        properties,
+        apiKey, // This can be undefined, and backend will use env var
+      );
+
+      if (response.status === "success") {
+        return response.result;
+      } else {
+        throw new Error(response.message || "Failed to send usage data");
+      }
+    } catch (error) {
+      console.error("Error sending usage data:", error);
+      throw error;
+    }
+  }, [config.customer_id, apiKey]);
+
   const value: MetronomeContextType = {
     config,
     balance,
@@ -544,6 +590,8 @@ export function MetronomeProvider({
     createSpendAlert,
     createBalanceAlert,
     deleteAlert,
+    fetchBillableMetric,
+    sendUsageData,
   };
 
   return (
