@@ -887,3 +887,34 @@ export async function rechargeBalance(
     };
   }
 }
+
+export async function previewEvents(
+  customer_id: string,
+  events: Array<{
+    event_type: string;
+    timestamp?: string;
+    properties?: Record<string, any>;
+  }>,
+  api_key?: string,
+): Promise<ApiResponse<any>> {
+  try {
+    const client = getMetronomeClient(api_key);
+    
+    // Call the Metronome SDK previewEvents function
+    const previewResponse = await client.v1.customers.previewEvents({
+      customer_id: customer_id,
+      events: events,
+    });
+    
+    return {
+      status: "success",
+      result: previewResponse,
+    };
+  } catch (error) {
+    console.error("Error previewing events:", error);
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Unknown error occurred while previewing events",
+    };
+  }
+}

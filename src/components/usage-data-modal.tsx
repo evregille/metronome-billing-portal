@@ -19,8 +19,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Send, Loader2, CheckCircle, XCircle, Calendar } from "lucide-react";
+import { Send, Loader2, CheckCircle, XCircle, Calendar, Calculator } from "lucide-react";
 import { useMetronome } from "@/hooks/use-metronome-config";
+import { formatCurrency } from "@/lib/utils";
 
 interface BillableMetric {
   id: string;
@@ -50,14 +51,16 @@ interface UsageDataModalProps {
   isOpen: boolean;
   onClose: () => void;
   billableMetrics: BillableMetric[];
+  mode?: "send" | "forecast";
 }
 
 export function UsageDataModal({ 
   isOpen, 
   onClose, 
-  billableMetrics
+  billableMetrics,
+  mode = "send"
 }: UsageDataModalProps) {
-  const { fetchBillableMetric, sendUsageData } = useMetronome();
+  const { fetchBillableMetric, sendUsageData, previewEvents } = useMetronome();
   const [selectedMetricId, setSelectedMetricId] = useState<string>("");
   const [metricDetails, setMetricDetails] = useState<BillableMetricDetails | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -67,6 +70,7 @@ export function UsageDataModal({
   const [filterInputs, setFilterInputs] = useState<FilterInput[]>([]);
   const [sentEvents, setSentEvents] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>("");
+  const [forecastResult, setForecastResult] = useState<any>(null);
 
   const handleClose = () => {
     setSelectedMetricId("");
@@ -76,6 +80,7 @@ export function UsageDataModal({
     setFilterInputs([]);
     setSentEvents([]);
     setSelectedDate("");
+    setForecastResult(null);
     setIsSending(false);
     onClose();
   };
@@ -133,6 +138,7 @@ export function UsageDataModal({
     setIsSending(true);
     setError(null);
     setSuccess(null);
+    setForecastResult(null);
     
     try {
       // Prepare properties from filter inputs
@@ -143,43 +149,74 @@ export function UsageDataModal({
         }
       });
       
-      // Send usage data
       const timestamp = selectedDate ? new Date(selectedDate).toISOString() : new Date().toISOString();
-      const result = await sendUsageData(
-        metricDetails?.event_type_filter?.in_values[0],
-        properties, 
-        timestamp,
-      );
       
-      // Add the transaction ID to the list of sent events
-      const transactionId = result.usage.transaction_id;
-      setSentEvents(prev => [...prev, transactionId]);
-      
-      setSuccess(`Usage data sent successfully! Transaction ID: ${transactionId}`);
-      
-      // Clear success message after 2 seconds but keep the modal open
-      setTimeout(() => {
-        setSuccess(null);
-      }, 2000);
+      if (mode === "forecast") {
+        // Preview events for cost forecasting
+        const events = [{
+          event_type: metricDetails?.event_type_filter?.in_values[0] || "usage_event",
+          timestamp: timestamp,
+          properties: properties
+        }];
+        
+        const result = await previewEvents(events);
+        setForecastResult(result);
+        setSuccess("Cost forecast generated successfully!");
+        
+        // Clear success message after 3 seconds
+        setTimeout(() => {
+          setSuccess(null);
+        }, 3000);
+      } else {
+        // Send usage data
+        const result = await sendUsageData(
+          metricDetails?.event_type_filter?.in_values[0],
+          properties, 
+          timestamp,
+        );
+        
+        // Add the transaction ID to the list of sent events
+        const transactionId = result.usage.transaction_id;
+        setSentEvents(prev => [...prev, transactionId]);
+        
+        setSuccess(`Usage data sent successfully! Transaction ID: ${transactionId}`);
+        
+        // Clear success message after 2 seconds but keep the modal open
+        setTimeout(() => {
+          setSuccess(null);
+        }, 2000);
+      }
       
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send usage data");
+      setError(err instanceof Error ? err.message : `Failed to ${mode === "forecast" ? "forecast costs" : "send usage data"}`);
     } finally {
       setIsSending(false);
     }
   };
-
+  console.log("forecastResult",forecastResult);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
-            <Send className="w-5 h-5" />
-            <span>Send Usage Data</span>
+            {mode === "forecast" ? (
+              <>
+                <Calculator className="w-5 h-5" />
+                <span>Forecast Costs</span>
+              </>
+            ) : (
+              <>
+                <Send className="w-5 h-5" />
+                <span>Send Usage Data</span>
+              </>
+            )}
           </DialogTitle>
           <DialogDescription>
-            Select a billable metric to view its details and send usage data.
+            {mode === "forecast" 
+              ? "Select a billable metric to preview how events would be processed and see cost forecasts."
+              : "Select a billable metric to view its details and send usage data."
+            }
           </DialogDescription>
         </DialogHeader>
         
@@ -333,7 +370,7 @@ export function UsageDataModal({
           )}
 
           {/* Sent Events List */}
-          {sentEvents.length > 0 && (
+          {sentEvents.length > 0 && mode === "send" && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <div className="flex items-center space-x-2 mb-3">
                 <CheckCircle className="w-4 h-4 text-green-600" />
@@ -348,6 +385,63 @@ export function UsageDataModal({
                     <span className="text-green-600">#{index + 1}</span>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Forecast Results */}
+          {forecastResult && mode === "forecast" && (
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+              <div className="flex items-center space-x-2 mb-3">
+                <Calculator className="w-4 h-4 text-purple-600" />
+                <h4 className="text-sm font-medium text-purple-900">Cost Forecast Results</h4>
+              </div>
+              <div className="space-y-3">
+                <div className="bg-white rounded-lg p-4 border border-purple-100">
+                  {/* Line Items */}
+                  {forecastResult.data.line_items && forecastResult.data.line_items.length > 0 ? (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-4 gap-4 text-xs font-medium text-gray-600 border-b border-gray-200 pb-2">
+                        <div>Name</div>
+                        <div className="text-right">Quantity</div>
+                        <div className="text-right">Unit Price</div>
+                        <div className="text-right">Total</div>
+                      </div>
+                      {forecastResult.data.line_items
+                        .filter((item: any) => item.total !== 0)
+                        .map((item: any, index: number) => (
+                          <div key={index} className="grid grid-cols-4 gap-4 text-sm py-2 border-b border-gray-100 last:border-b-0">
+                            <div className="font-medium text-gray-900 truncate" title={item.name}>
+                              {item.name}
+                            </div>
+                            <div className="text-right text-gray-700">
+                              {item.quantity || ''}
+                            </div>
+                            <div className="text-right text-gray-700">
+                              {item.unit_price ? `${formatCurrency(item.unit_price, item.credit_type.name)}` : ''}
+                            </div>
+                            <div className="text-right font-semibold text-gray-900">
+                              {item.total ? `${formatCurrency(item.total, item.credit_type.name)}` : ''}
+                            </div>
+                          </div>
+                        ))}
+                      
+                      {/* Total Impact */}
+                      <div className="grid grid-cols-4 gap-4 text-sm py-3 border-t-2 border-purple-200 bg-purple-50 rounded-lg px-3 mt-4">
+                        <div className="font-bold text-purple-900">Total Impact</div>
+                        <div></div>
+                        <div></div>
+                        <div className="text-right font-bold text-purple-900">
+                          {`${formatCurrency(forecastResult.data.total, forecastResult.data.credit_type.name)}`}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-gray-500">
+                      <p className="text-sm">No line items found in forecast results</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -369,12 +463,21 @@ export function UsageDataModal({
             {isSending ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Sending...
+                {mode === "forecast" ? "Forecasting..." : "Sending..."}
               </>
             ) : (
               <>
-                <Send className="w-4 h-4 mr-2" />
-                {sentEvents.length > 0 ? `Send Another Event (${sentEvents.length} sent)` : "Send Usage Data"}
+                {mode === "forecast" ? (
+                  <>
+                    <Calculator className="w-4 h-4 mr-2" />
+                    {forecastResult ? "Generate New Forecast" : "Forecast Costs"}
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4 mr-2" />
+                    {sentEvents.length > 0 ? `Send Another Event (${sentEvents.length} sent)` : "Send Usage Data"}
+                  </>
+                )}
               </>
             )}
           </Button>
