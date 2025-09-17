@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useMetronome } from "@/hooks/use-metronome-config";
 import { formatCurrency, getCoinSymbol } from "@/lib/utils";
-import { DollarSign, Package, Bell, Trash2,  } from "lucide-react";
+import { DollarSign, Package, Bell, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,8 @@ export function Spend() {
     fetchCurrentSpend, 
     fetchAlerts,
     createSpendAlert,
-    deleteAlert
+    deleteAlert,
+    isCustomerTransitioning
   } = useMetronome();
   
   const [isEditingAlert, setIsEditingAlert] = useState(false);
@@ -38,22 +39,70 @@ export function Spend() {
     }
   }, [alerts?.spendAlert]);
 
-  // Calculate total spend across all currencies
-  const totalSpendByCurrency = currentSpend?.total || {};
-  const totalSpend = Object.values(totalSpendByCurrency).reduce((sum, amount) => sum + amount, 0);
+  // Calculate total spend from commit application totals
+  const totalSpendByCurrency: Record<string, { total: number; currency_name: string }> = (currentSpend?.commitApplicationTotals && Object.keys(currentSpend.commitApplicationTotals).length > 0) 
+                                                                                            ? currentSpend.commitApplicationTotals 
+                                                                                            : Object.fromEntries(Object.entries(currentSpend?.total || {}).map(([currency, amount]) => [
+                                                                                              currency, 
+                                                                                              { total: amount, currency_name: currency }
+                                                                                            ]));
+
+  const totalSpend: number = Object.values(totalSpendByCurrency).reduce((sum, amount) => sum + amount.total, 0) 
+      
   const productCount = currentSpend?.productTotals ? Object.keys(currentSpend.productTotals).length : 0;
-  // Prepare data for horizontal stacked bar
-  const chartData = currentSpend?.productTotals ? 
-    Object.entries(currentSpend.productTotals).map(([productName, productData]) => {
-      const percentage = totalSpend > 0 ? (productData.total / totalSpend) * 100 : 0;
-      return {
-        name: productName,
-        value: productData.total,
-        percentage: percentage,
-        formattedValue: formatCurrency(productData.total, productData.currency_name),
-        currency: productData.currency_name
-      };
-    }) : [];
+  // Prepare data for balance drawdown by product
+  const balanceDrawdownData = currentSpend?.productTotals ? 
+    Object.entries(currentSpend.productTotals)
+      .filter(([, productData]) => productData.balanceDrawdown > 0)
+      .map(([productName, productData]) => {
+        const totalBalanceDrawdown = Object.values(currentSpend.productTotals || {})
+          .reduce((sum, data) => sum + data.balanceDrawdown, 0);
+        const percentage = totalBalanceDrawdown > 0 ? (productData.balanceDrawdown / totalBalanceDrawdown) * 100 : 0;
+        return {
+          name: productName,
+          type: productData.type || 'Other',
+          value: productData.balanceDrawdown,
+          percentage: percentage,
+          formattedValue: formatCurrency(productData.balanceDrawdown, productData.currency_name),
+          currency: productData.currency_name
+        };
+      }) : [];
+
+  // Group balance drawdown data by type for display
+  const balanceDrawdownByType = balanceDrawdownData.reduce((groups, item) => {
+    if (!groups[item.type]) {
+      groups[item.type] = [];
+    }
+    groups[item.type].push(item);
+    return groups;
+  }, {} as Record<string, typeof balanceDrawdownData>);
+
+  // Prepare data for overages by product
+  const overagesData = currentSpend?.productTotals ? 
+    Object.entries(currentSpend.productTotals)
+      .filter(([, productData]) => productData.overages > 0)
+      .map(([productName, productData]) => {
+        const totalOverages = Object.values(currentSpend.productTotals || {})
+          .reduce((sum, data) => sum + data.overages, 0);
+        const percentage = totalOverages > 0 ? (productData.overages / totalOverages) * 100 : 0;
+        return {
+          name: productName,
+          type: productData.type || 'Other',
+          value: productData.overages,
+          percentage: percentage,
+          formattedValue: formatCurrency(productData.overages, productData.currency_name),
+          currency: productData.currency_name
+        };
+      }) : [];
+
+  // Group overages data by type for display
+  const overagesByType = overagesData.reduce((groups, item) => {
+    if (!groups[item.type]) {
+      groups[item.type] = [];
+    }
+    groups[item.type].push(item);
+    return groups;
+  }, {} as Record<string, typeof overagesData>);
 
   // Define colors for different products
   const colors = [
@@ -99,6 +148,31 @@ export function Spend() {
   };
 
 
+  // Show loading state during customer transition
+  if (isCustomerTransitioning) {
+    return (
+      <div className="glass-card card-hover rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-3">
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
+              <DollarSign className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Spend</h3>
+              <p className="text-sm text-gray-600">This billing period</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-3" />
+            <p className="text-gray-600">Loading customer data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="glass-card card-hover rounded-2xl p-6">
       <div className="flex items-center justify-between mb-6">
@@ -114,9 +188,9 @@ export function Spend() {
         <div className="text-right">
           {Object.keys(totalSpendByCurrency).length > 0 ? (
             <div className="space-y-1">
-              {Object.entries(totalSpendByCurrency).map(([currency, amount]) => (
-                <div key={currency} className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(amount, currency)}
+              {Object.entries(totalSpendByCurrency).map(([category, data]) => (
+                <div key={category} className="text-2xl font-bold text-gray-900">
+                  {formatCurrency(data.total, data.currency_name)}
                 </div>
               ))}
             </div>
@@ -129,17 +203,17 @@ export function Spend() {
         </div>
       </div>
 
-      {/* Horizontal Stacked Bar */}
-      {chartData.length > 0 && (
+      {/* Balance Drawdown by Product */}
+      {balanceDrawdownData.length > 0 && (
         <div className="space-y-4 mb-6">
           <div className="flex items-center space-x-2 mb-4">
-            <Package className="w-4 h-4 text-gray-600" />
-            <h4 className="text-sm font-semibold text-gray-900">Spend by Product</h4>
+            <Package className="w-4 h-4 text-green-600" />
+            <h4 className="text-sm font-semibold text-gray-900">Balance drawdown by Product</h4>
           </div>
 
-          {/* Stacked Bar */}
+          {/* Single Stacked Bar */}
           <div className="w-full bg-gray-200 rounded-full h-8 overflow-hidden">
-            {chartData.map((item, index) => (
+            {balanceDrawdownData.map((item, index) => (
               <div
                 key={index}
                 className="h-full inline-block"
@@ -152,29 +226,92 @@ export function Spend() {
             ))}
           </div>
 
-          {/* Product List */}
-          <div className="space-y-2">
-            {chartData.map((item, index) => (
-              <div key={index} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <div 
-                    className="w-4 h-4 rounded-full" 
-                    style={{ backgroundColor: colors[index % colors.length] }}
-                  ></div>
-                  <div>
-                    <span className="text-sm font-medium text-gray-900">{item.name}</span>
-                    {/* <span className="text-xs text-gray-500 ml-2">({item.currency})</span> */}
-                  </div>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <span className="text-sm font-semibold text-gray-900">{item.formattedValue}</span>
-                  <span className="text-sm text-gray-600 min-w-[3rem] text-right">
-                    {item.percentage.toFixed(1)}%
-                  </span>
-                </div>
+          {/* Product List organized by type */}
+          {Object.entries(balanceDrawdownByType).map(([type, products]) => (
+            <div key={type} className="space-y-2">
+              <h5 className="text-sm font-medium text-gray-700 capitalize">{type}</h5>
+              <div className="space-y-2">
+                {products.map((item, index) => {
+                  const globalIndex = balanceDrawdownData.findIndex(d => d.name === item.name);
+                  return (
+                    <div key={index} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div 
+                          className="w-4 h-4 rounded-full" 
+                          style={{ backgroundColor: colors[globalIndex % colors.length] }}
+                        ></div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-900">{item.name}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-4">
+                        <span className="text-sm font-semibold text-gray-900">{item.formattedValue}</span>
+                        <span className="text-sm text-gray-600 min-w-[3rem] text-right">
+                          {item.percentage.toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Overages by Product */}
+      {overagesData.length > 0 && (
+        <div className="space-y-4 mb-6">
+          <div className="flex items-center space-x-2 mb-4">
+            <Package className="w-4 h-4 text-green-600" />
+            <h4 className="text-sm font-semibold text-gray-900">Spend by Product (in-arrears overages)</h4>
+          </div>
+
+          {/* Single Stacked Bar */}
+          <div className="w-full bg-gray-200 rounded-full h-8 overflow-hidden">
+            {overagesData.map((item, index) => (
+              <div
+                key={index}
+                className="h-full inline-block"
+                style={{
+                  width: `${item.percentage}%`,
+                  backgroundColor: colors[index % colors.length],
+                }}
+                title={`${item.name}: ${item.formattedValue} (${item.percentage.toFixed(1)}%)`}
+              />
             ))}
           </div>
+
+          {/* Product List organized by type */}
+          {Object.entries(overagesByType).map(([type, products]) => (
+            <div key={type} className="space-y-2">
+              <h5 className="text-sm font-medium text-gray-700 capitalize">{type}</h5>
+              <div className="space-y-2">
+                {products.map((item, index) => {
+                  const globalIndex = overagesData.findIndex(d => d.name === item.name);
+                  return (
+                    <div key={index} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div 
+                          className="w-4 h-4 rounded-full" 
+                          style={{ backgroundColor: colors[globalIndex % colors.length] }}
+                        ></div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-900">{item.name}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-4">
+                        <span className="text-sm font-semibold text-gray-900">{item.formattedValue}</span>
+                        <span className="text-sm text-gray-600 min-w-[3rem] text-right">
+                          {item.percentage.toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -267,7 +404,7 @@ export function Spend() {
                       Alert when spending reaches:
                     </Label>
                     <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-500">{getCoinSymbol(Object.entries(totalSpendByCurrency)[0][0])}</span>
+                      <span className="text-sm text-gray-500">{getCoinSymbol(Object.entries(totalSpendByCurrency)[0]?.[1]?.currency_name || 'USD')}</span>
                       <Input
                         id="spend-threshold"
                         type="number"

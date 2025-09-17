@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMetronome } from "@/hooks/use-metronome-config";
-import { FileText, ExternalLink, Loader2, Download } from "lucide-react";
+import { FileText, Loader2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -15,7 +15,8 @@ export function Invoices() {
     invoiceEmbeddableUrl, 
     fetchInvoiceEmbeddable, 
     fetchInvoices,
-    loadingStates 
+    loadingStates,
+    isCustomerTransitioning
   } = useMetronome();
   
   const [showEmbeddable, setShowEmbeddable] = useState(false);
@@ -68,6 +69,31 @@ export function Invoices() {
     }
     return 0;
   }) : [];
+
+  // Show loading state during customer transition
+  if (isCustomerTransitioning) {
+    return (
+      <div className="glass-card p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+              <FileText className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Invoices</h3>
+              <p className="text-sm text-gray-600">View and manage your invoices</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-3" />
+            <p className="text-gray-600">Loading customer data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="glass-card p-6">

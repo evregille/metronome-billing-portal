@@ -73,7 +73,14 @@ type InvoiceBreakdownResult = {
 
 type SpendResult = {
   total: Record<string, number>;
-  productTotals: Record<string, { total: number; currency_name: string }>;
+  productTotals: Record<string, { 
+    total: number; 
+    currency_name: string;
+    balanceDrawdown: number;
+    overages: number;
+    type: string;
+  }>;
+  commitApplicationTotals: Record<string, { total: number; currency_name: string }>;
 };
 
 type InvoiceListBreakdownsResponse = {
@@ -410,10 +417,18 @@ export async function fetchCurrentSpendDraftInvoice(
     });
 
     const total: Record<string, number> = {};
-    const productTotals: Record<string, { total: number; currency_name: string }> = {};
+    const productTotals: Record<string, { 
+      total: number; 
+      currency_name: string;
+      balanceDrawdown: number;
+      overages: number;
+      type: string;
+    }> = {};
+    const commitApplicationTotals: Record<string, { total: number; currency_name: string }> = {};
     if (invoices?.data) {
       // Calculate total amount from all line items (before commits and credits)
       invoices.data.forEach((inv) => {
+        
         inv.line_items.forEach((item: any) => {
           const currency_name = item.credit_type.name;
           // Only include positive line items (charges, not credits)
@@ -422,19 +437,53 @@ export async function fetchCurrentSpendDraftInvoice(
             total[currency_name] = (total[currency_name] || 0) + item.total;
             // Normalize product name to group tiers together
             const normalizedName = normalizeProductName(item.name);
-            if (productTotals[normalizedName]) {
-              productTotals[normalizedName].total += item.total;
-            } else {
-              productTotals[normalizedName] = {
-                total: item.total,
-                currency_name: currency_name
-              };
+            const hasCommitApplied = item.applied_commit_or_credit && item.applied_commit_or_credit.id;
+            if(item.type !== `cpu_conversion`){
+              if (productTotals[normalizedName]) {
+                productTotals[normalizedName].total += item.total;
+                productTotals[normalizedName].type = item.type;
+                if (hasCommitApplied) {
+                  productTotals[normalizedName].balanceDrawdown += item.total;
+                } else {
+                  productTotals[normalizedName].overages += item.total;
+                }
+              } else {
+                productTotals[normalizedName] = {
+                  total: item.total,
+                  currency_name: item.credit_type.name, // Use line item's specific currency
+                  balanceDrawdown: hasCommitApplied ? item.total : 0,
+                  overages: hasCommitApplied ? 0 : item.total,
+                  type: item.type
+                };
+              }
+            }
+            
+            // Add to commit application breakdown
+            const commitStatus = hasCommitApplied ? "Balance Drawdown" : "Overages";
+            if (commitStatus === "Overages" && item.type === `cpu_conversion` || commitStatus === "Balance Drawdown") {
+              if (commitApplicationTotals[commitStatus]) {
+                commitApplicationTotals[commitStatus].total += item.total;
+              } else {
+                commitApplicationTotals[commitStatus] = {
+                  total: item.total,
+                  currency_name: currency_name
+                };
+              }
             }
           }
+          
         });
       });
     }
-    return { status: "success", result: { total, productTotals } };
+    
+    return { 
+      status: "success", 
+      result: { 
+        total, 
+        productTotals, 
+        commitApplicationTotals 
+      } 
+    };
   } catch (error) {
     return {
       status: "error",
@@ -713,6 +762,7 @@ export async function sendUsageData(
   customer_id: string,
   event_type: string,
   properties: Record<string, any>,
+  timestamp: string,
   api_key?: string,
 ): Promise<ApiResponse<any>> {
   try {
@@ -723,7 +773,7 @@ export async function sendUsageData(
       customer_id: customer_id,
       event_type:event_type,
       transaction_id: `txn_${Date.now()}`, // Required field - generate unique transaction ID
-      timestamp: new Date().toISOString(),
+      timestamp: timestamp || new Date().toISOString(),
       properties: properties || {},
     };
     
@@ -799,14 +849,14 @@ export async function rechargeBalance(
               }
             ]
           },
-          // invoice_schedule: {
-          //   schedule_items: [
-          //     {
-          //       amount: recharge_amount,
-          //       timestamp: now.toISOString(),
-          //     }
-          //   ]
-          // },
+          invoice_schedule: {
+            schedule_items: [
+              {
+                amount: recharge_amount,
+                timestamp: now.toISOString(),
+              }
+            ]
+          },
           priority: 10,
           payment_gate_config: {
             payment_gate_type: "STRIPE" as const,

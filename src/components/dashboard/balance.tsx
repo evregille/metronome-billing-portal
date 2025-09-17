@@ -23,6 +23,7 @@ export function Balance() {
     deleteAlert,
     commitsEmbeddableUrl, 
     loadingStates,
+    isCustomerTransitioning,
     rechargeProductId
   } = useMetronome();
   
@@ -125,6 +126,31 @@ export function Balance() {
       default: return 'Unknown';
     }
   };
+
+  // Show loading state during customer transition
+  if (isCustomerTransitioning) {
+    return (
+      <div className="glass-card card-hover rounded-2xl p-6 h-full">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-3">
+            <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center">
+              <Wallet className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Account Balance</h3>
+              <p className="text-sm text-gray-600">Available funds</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <Loader2 className="w-8 h-8 animate-spin text-green-500 mx-auto mb-3" />
+            <p className="text-gray-600">Loading customer data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div ref={containerRef} className="glass-card card-hover rounded-2xl p-6 h-full">

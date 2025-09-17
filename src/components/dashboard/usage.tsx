@@ -16,7 +16,8 @@ export function Usage() {
     rawUsageData,
     fetchUsageEmbeddable, 
     fetchRawUsageData,
-    loadingStates 
+    loadingStates,
+    isCustomerTransitioning
   } = useMetronome();
   
   const [showEmbeddable, setShowEmbeddable] = useState(false);
@@ -37,6 +38,31 @@ export function Usage() {
       await fetchRawUsageData();
     })();
   }, [config, fetchRawUsageData]);
+
+  // Show loading state during customer transition
+  if (isCustomerTransitioning) {
+    return (
+      <div className="glass-card card-hover rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-3">
+            <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
+              <BarChart3 className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Usage Analytics</h3>
+              <p className="text-sm text-gray-600">Detailed usage metrics and analytics</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <Loader2 className="w-8 h-8 animate-spin text-green-500 mx-auto mb-3" />
+            <p className="text-gray-600">Loading customer data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="glass-card card-hover rounded-2xl p-6">

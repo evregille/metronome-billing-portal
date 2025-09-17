@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { useMetronome } from "@/hooks/use-metronome-config";
 import { formatCurrency } from "@/lib/utils";
-import { BarChart3, Filter, ChevronDown } from "lucide-react";
+import { BarChart3, Filter, ChevronDown, Loader2 } from "lucide-react";
 
 interface ProductFilter {
   name: string;
@@ -23,7 +23,7 @@ const normalizeProductName = (productName: string): string => {
 };
 
 export function CostBreakdownChart() {
-  const { costs, fetchCosts, loadingStates } = useMetronome();
+  const { costs, fetchCosts, loadingStates, isCustomerTransitioning } = useMetronome();
   const [chartData, setChartData] = useState<any[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<string>("");
   const [selectedProperty, setSelectedProperty] = useState<string>("");
@@ -183,28 +183,33 @@ export function CostBreakdownChart() {
     setSelectedProperty(propertyName);
   };
 
+  // Show loading state during customer transition
+  if (isCustomerTransitioning) {
+    return (
+      <div className="glass-card card-hover rounded-2xl p-6">
+        <div className="flex items-center space-x-3 mb-6">
+          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
+            <BarChart3 className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Costs Breakdown</h3>
+            <p className="text-sm text-gray-600">Daily spending trends</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <Loader2 className="w-8 h-8 animate-spin text-purple-500 mx-auto mb-3" />
+            <p className="text-gray-600">Loading customer data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (loadingStates.costs || Object.keys(costs?.products || {}).length === 0) {
     return <></>
   }
-  //   return (
-  //     <div className="glass-card card-hover rounded-2xl p-6">
-  //       <div className="flex items-center space-x-3 mb-6">
-  //         <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
-  //           <BarChart3 className="w-6 h-6 text-white" />
-  //         </div>
-  //         <div>
-  //           <h3 className="text-lg font-semibold text-gray-900">Cost Breakdown</h3>
-  //           <p className="text-sm text-gray-600">Loading cost data...</p>
-  //         </div>
-  //       </div>
-  //       <div className="flex items-center justify-center h-64">
-  //         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-  //       </div>
-  //     </div>
-  //   );
-  // }
 
-  console.log('costs', costs);
   if (!availableProducts.length || availableProducts.length === 1) {
     return (
       <div className="glass-card card-hover rounded-2xl p-6">
@@ -213,7 +218,7 @@ export function CostBreakdownChart() {
             <BarChart3 className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Cost Breakdown</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Costs Breakdown</h3>
             <p className="text-sm text-gray-600">Daily spending trends</p>
           </div>
         </div>

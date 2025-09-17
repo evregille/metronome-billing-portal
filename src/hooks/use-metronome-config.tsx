@@ -64,7 +64,14 @@ interface BreakdownData {
 
 interface CurrentSpend {
   total: Record<string, number>;
-  productTotals: Record<string, { total: number; currency_name: string }>;
+  productTotals: Record<string, { 
+    total: number; 
+    currency_name: string;
+    balanceDrawdown: number;
+    overages: number;
+    type: string;
+  }>;
+  commitApplicationTotals: Record<string, { total: number; currency_name: string }>;
 }
 
 interface InvoiceListItem {
@@ -138,6 +145,7 @@ interface MetronomeContextType {
   commitsEmbeddableUrl: string | null;
   usageEmbeddableUrl: string | null;
   loadingStates: LoadingStates;
+  isCustomerTransitioning: boolean;
   rechargeProductId?: string;
   fetchBalance: () => Promise<void>;
   fetchCosts: () => Promise<void>;
@@ -153,7 +161,7 @@ interface MetronomeContextType {
   createBalanceAlert: (threshold: number) => Promise<void>;
   deleteAlert: (alertId: string) => Promise<void>;
   fetchBillableMetric: (billableMetricId: string) => Promise<any>;
-  sendUsageData: (event_type: string, properties:  Record<string, any>) => Promise<any>;
+  sendUsageData: (event_type: string, properties:  Record<string, any>, timestamp: string) => Promise<any>;
 }
 
 const MetronomeContext = createContext<MetronomeContextType | undefined>(undefined);
@@ -194,9 +202,14 @@ export function MetronomeProvider({
     rawUsageData: false,
   });
 
+  const [isCustomerTransitioning, setIsCustomerTransitioning] = useState(false);
+
   // Update customer_id when it changes
   useEffect(() => {
     if (customerId && customerId !== config.customer_id) {
+      // Set transitioning state
+      setIsCustomerTransitioning(true);
+      
       // Reset all data when customer changes
       setBalance(null);
       setCosts(null);
@@ -212,6 +225,11 @@ export function MetronomeProvider({
       setConfig({
         customer_id: customerId,
       });
+      
+      // Clear transitioning state after a brief delay to allow components to render
+      setTimeout(() => {
+        setIsCustomerTransitioning(false);
+      }, 100);
     }
   }, [customerId, config.customer_id]);
 
@@ -540,7 +558,7 @@ export function MetronomeProvider({
     }
   }, [apiKey]);
 
-  const sendUsageData = useCallback(async (event_type: string, properties: Record<string, any> ) => {
+  const sendUsageData = useCallback(async (event_type: string, properties: Record<string, any>, timestamp: string ) => {
     if (!config.customer_id) {
       throw new Error("Customer ID is not available. Please refresh the page and try again.");
     }
@@ -550,6 +568,7 @@ export function MetronomeProvider({
         config.customer_id,
         event_type,
         properties,
+        timestamp,
         apiKey, // This can be undefined, and backend will use env var
       );
 
@@ -576,6 +595,7 @@ export function MetronomeProvider({
     commitsEmbeddableUrl,
     usageEmbeddableUrl,
     loadingStates,
+    isCustomerTransitioning,
     rechargeProductId,
     fetchBalance,
     fetchCosts,

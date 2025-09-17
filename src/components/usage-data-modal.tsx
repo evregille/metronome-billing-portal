@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Send, Loader2, CheckCircle, XCircle } from "lucide-react";
+import { Send, Loader2, CheckCircle, XCircle, Calendar } from "lucide-react";
 import { useMetronome } from "@/hooks/use-metronome-config";
 
 interface BillableMetric {
@@ -66,6 +66,7 @@ export function UsageDataModal({
   const [success, setSuccess] = useState<string | null>(null);
   const [filterInputs, setFilterInputs] = useState<FilterInput[]>([]);
   const [sentEvents, setSentEvents] = useState<string[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string>("");
 
   const handleClose = () => {
     setSelectedMetricId("");
@@ -74,6 +75,7 @@ export function UsageDataModal({
     setSuccess(null);
     setFilterInputs([]);
     setSentEvents([]);
+    setSelectedDate("");
     setIsSending(false);
     onClose();
   };
@@ -132,7 +134,6 @@ export function UsageDataModal({
     setError(null);
     setSuccess(null);
     
-    console.log("Sending usage data", metricDetails);
     try {
       // Prepare properties from filter inputs
       const properties: Record<string, any> = {};
@@ -143,9 +144,11 @@ export function UsageDataModal({
       });
       
       // Send usage data
+      const timestamp = selectedDate ? new Date(selectedDate).toISOString() : new Date().toISOString();
       const result = await sendUsageData(
         metricDetails?.event_type_filter?.in_values[0],
-        properties
+        properties, 
+        timestamp,
       );
       
       // Add the transaction ID to the list of sent events
@@ -196,6 +199,27 @@ export function UsageDataModal({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Date Picker */}
+          <div className="space-y-2">
+            <Label htmlFor="usage-date" className="flex items-center space-x-2">
+              <Calendar className="w-4 h-4" />
+              <span>Usage Date (Optional)</span>
+            </Label>
+            <Input
+              id="usage-date"
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              max={new Date().toISOString().split('T')[0]}
+              min={new Date(Date.now() - 34 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+              className="text-sm"
+              placeholder="Select a date (up to 34 days ago)"
+            />
+            <p className="text-xs text-gray-500">
+              Leave empty to use current time. Select a date up to 34 days in the past.
+            </p>
           </div>
 
           {/* Error Display */}
