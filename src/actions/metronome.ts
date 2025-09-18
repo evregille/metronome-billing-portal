@@ -903,8 +903,7 @@ export async function previewEvents(
     // Call the Metronome SDK previewEvents function
     const previewResponse = await client.v1.customers.previewEvents({
       customer_id: customer_id,
-      events: events,
-      mode:"merge"
+      events: events
     });
     
     return {
