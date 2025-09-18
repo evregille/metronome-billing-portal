@@ -904,6 +904,7 @@ export async function previewEvents(
     const previewResponse = await client.v1.customers.previewEvents({
       customer_id: customer_id,
       events: events,
+      mode:"merge"
     });
     
     return {
