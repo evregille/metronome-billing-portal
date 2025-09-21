@@ -247,11 +247,11 @@ function DashboardContent() {
                   <Spend />
                 </div>
 
-                {/* Cost Breakdown */}
-                <CostBreakdownChart />
-
                 {/* Managed Subscriptions */}
                 <ManagedSubscription />
+
+                {/* Cost Breakdown */}
+                <CostBreakdownChart />
 
                 {/* Usage Analytics */}
                 <Usage />
