@@ -114,6 +114,7 @@ type InvoiceListItem = {
   end_timestamp: string;
   total: number;
   status: string;
+  currency_name: string;
 };
 
 type InvoiceListResult = {
@@ -507,6 +508,7 @@ export async function fetchCustomerInvoices(
       end_timestamp: invoice.end_timestamp,
       total: invoice.total,
       status: invoice.status,
+      currency_name: invoice.credit_type.name,
     }));
 
     return {

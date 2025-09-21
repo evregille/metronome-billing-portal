@@ -94,7 +94,7 @@ export function Invoices() {
       </div>
     );
   }
-
+console.log("sortedInvoices", sortedInvoices);
   return (
     <div className="glass-card p-6">
       <div className="flex items-center justify-between mb-6">
@@ -180,7 +180,7 @@ export function Invoices() {
                         {formatDate(invoice.end_timestamp)}
                       </td>
                       <td className="py-3 px-4 text-sm font-semibold text-gray-900 text-right">
-                        ${formatCurrency(invoice.total).replace('$', '')}
+                        ${formatCurrency(invoice.total, invoice.currency_name).replace('$', '')}
                       </td>
                       <td className="py-3 px-4 text-center">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(invoice.status)}`}>

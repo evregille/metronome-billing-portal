@@ -82,6 +82,7 @@ interface InvoiceListItem {
   end_timestamp: string;
   total: number;
   status: string;
+  currency_name: string;
 }
 
 interface AlertData {

@@ -95,7 +95,7 @@ export function ManagedSubscription() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Managed Subscriptions</CardTitle>
+          <CardTitle>Your Subscriptions</CardTitle>
           <CardDescription>Loading subscription data...</CardDescription>
         </CardHeader>
         <CardContent>
@@ -111,7 +111,7 @@ export function ManagedSubscription() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Managed Subscriptions</CardTitle>
+          <CardTitle>Your Subscriptions</CardTitle>
           <CardDescription>No active subscriptions found</CardDescription>
         </CardHeader>
         <CardContent>
@@ -131,13 +131,10 @@ export function ManagedSubscription() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Managed Subscriptions</CardTitle>
-        <CardDescription>
-          Manage your subscription quantities
-        </CardDescription>
+        <CardTitle>Your Subscriptions</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className={`grid gap-6 ${contractSubscriptions.subscriptions.length === 1 ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
           {contractSubscriptions.subscriptions.map((subscription) => {
             const currentQuantity = getCurrentQuantity(subscription.quantity_schedule);
             const pendingQuantity = pendingQuantities[subscription.id];
@@ -172,7 +169,7 @@ export function ManagedSubscription() {
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Subscription Period</p>
                     <p className="text-sm">
-                      {formatDate(subscription.starting_at)} - {formatDate(subscription.ending_before)}
+                      {formatDate(subscription.starting_at)} - {(subscription.ending_before) ? formatDate(subscription.ending_before) : ""}
                     </p>
                   </div>
                   <div>

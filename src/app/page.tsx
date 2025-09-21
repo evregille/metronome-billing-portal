@@ -127,7 +127,7 @@ function DashboardHeader({
 }
 
 function DashboardContent() {
-  const { selectedCustomer, loading, customers } = useCustomer();
+  const { selectedCustomer, loading, } = useCustomer();
   const [isLoading, setIsLoading] = useState(true);
   const [apiKey, setApiKey] = useState<string | undefined>(undefined);
   const [businessName, setBusinessName] = useState(DEFAULT_BUSINESS_NAME);
