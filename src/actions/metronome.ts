@@ -918,3 +918,102 @@ export async function previewEvents(
     };
   }
 }
+
+export async function fetchContractSubscriptions(
+  customer_id: string,
+  api_key?: string,
+): Promise<ApiResponse<any>> {
+  try {
+    const client = getMetronomeClient(api_key);
+    
+    // Call the Metronome SDK v2 contracts list function
+    const response = await client.v2.contracts.list({
+      customer_id: customer_id,
+    });
+    
+    const today = new Date(new Date().setHours(0, 0, 0, 0));
+    const activeContracts = response.data.filter((contract: any) => {
+      // If no ending_before date, contract is active
+      if (!contract.ending_before) {
+        return true;
+      }
+      // If ending_before exists, check if it's after today
+      const endingDate = new Date(contract.ending_before);
+      return endingDate > today;
+    });
+    
+    if (activeContracts.length === 0) {
+      return {
+        status: "success",
+        result: {
+          contract_id: null,
+          subscriptions: [],
+        },
+      };
+    }
+    return {
+      status: "success",
+      result: {
+        contract_id: activeContracts[0].id,
+        subscriptions: activeContracts[0].subscriptions || [],
+      },
+    };
+  } catch (error) {
+    console.error("Error fetching contract subscriptions:", error);
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Unknown error occurred while fetching contract subscriptions",
+    };
+  }
+}
+
+export async function updateSubscriptionQuantity(
+  customer_id: string,
+  contract_id: string,
+  subscription_id: string,
+  new_quantity: number,
+  api_key?: string,
+): Promise<ApiResponse<any>> {
+  try {
+    const client = getMetronomeClient(api_key);
+    
+    // Calculate midnight-aligned date for starting_at
+    const now = new Date();
+    const midnightAligned = new Date(now);
+    midnightAligned.setUTCHours(0, 0, 0, 0);
+    
+    // If the current time is past midnight, use next midnight
+    if (now.getTime() > midnightAligned.getTime()) {
+      midnightAligned.setUTCDate(midnightAligned.getUTCDate() + 1);
+    }
+    
+    const updatePayload = {
+      customer_id: customer_id,
+      contract_id: contract_id,
+      update_subscriptions: [
+        {
+          subscription_id: subscription_id,
+          quantity_updates: [
+            {
+              starting_at: midnightAligned.toISOString(),
+              quantity: new_quantity,
+            },
+          ],
+        },
+      ],
+    };
+    
+    const response = await client.v2.contracts.edit(updatePayload);
+    
+    return {
+      status: "success",
+      result: response.data,
+    };
+  } catch (error) {
+    console.error("Error updating subscription quantity:", error);
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Unknown error occurred while updating subscription quantity",
+    };
+  }
+}

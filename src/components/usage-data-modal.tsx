@@ -193,7 +193,6 @@ export function UsageDataModal({
       setIsSending(false);
     }
   };
-  console.log("forecastResult",forecastResult);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>

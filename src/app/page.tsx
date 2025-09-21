@@ -10,6 +10,7 @@ import { Invoices } from "@/components/dashboard/invoices";
 import { CostBreakdownChart } from "@/components/charts/cost-breakdown-chart";
 import { CustomerSelector } from "@/components/customer-selector";
 import { SettingsModal } from "@/components/settings-modal";
+import { ManagedSubscription } from "@/components/managed-subscription";
 import { RefreshCw } from "lucide-react";
 
 const BUSINESS_NAME_STORAGE_KEY = "business_name";
@@ -26,6 +27,7 @@ function RefreshButton() {
     fetchAlerts, 
     fetchInvoices, 
     fetchRawUsageData,
+    fetchContractSubscriptions,
     loadingStates 
   } = useMetronome();
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -41,6 +43,7 @@ function RefreshButton() {
         fetchAlerts(),
         fetchInvoices(),
         fetchRawUsageData(),
+        fetchContractSubscriptions(),
       ]);
     } catch (error) {
       console.error("Error refreshing data:", error);
@@ -246,6 +249,9 @@ function DashboardContent() {
 
                 {/* Cost Breakdown */}
                 <CostBreakdownChart />
+
+                {/* Managed Subscriptions */}
+                <ManagedSubscription />
 
                 {/* Usage Analytics */}
                 <Usage />
