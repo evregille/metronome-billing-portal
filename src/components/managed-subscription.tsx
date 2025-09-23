@@ -230,11 +230,7 @@ export function ManagedSubscription() {
                   <Button
                     onClick={() => handleUpdateQuantity(subscription.id, displayQuantity)}
                     disabled={updatingQuantities.has(subscription.id) || !hasChanges}
-                    className={`w-full px-4 py-1.5 rounded-lg font-medium shadow-lg transition-all duration-200 text-sm ${
-                      hasChanges && !updatingQuantities.has(subscription.id)
-                        ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
-                        : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                    }`}
+                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-4 py-1.5 rounded-lg font-medium shadow-lg transition-all duration-200 text-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-blue-600 disabled:hover:to-indigo-600"
                   >
                     {updatingQuantities.has(subscription.id) ? (
                       <>
