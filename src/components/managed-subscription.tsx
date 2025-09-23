@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useMetronome } from "@/hooks/use-metronome-config";
+import { Package, Loader2, RefreshCw } from "lucide-react";
 
 export function ManagedSubscription() {
   const { 
@@ -93,48 +93,66 @@ export function ManagedSubscription() {
 
   if (loadingStates.contractSubscriptions) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Your Subscriptions</CardTitle>
-          <CardDescription>Loading subscription data...</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-gray-100"></div>
+      <div className="glass-card card-hover rounded-2xl p-6">
+        <div className="flex items-center space-x-3 mb-6">
+          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
+            <Package className="w-6 h-6 text-white" />
           </div>
-        </CardContent>
-      </Card>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Managed Subscriptions</h3>
+            <p className="text-sm text-gray-600">Loading subscription data...</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-center py-8">
+          <div className="text-center">
+            <Loader2 className="w-8 h-8 animate-spin text-purple-500 mx-auto mb-3" />
+            <p className="text-gray-600">Loading subscription data...</p>
+          </div>
+        </div>
+      </div>
     );
   }
 
   if (!contractSubscriptions || contractSubscriptions.subscriptions.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Your Subscriptions</CardTitle>
-          <CardDescription>No active subscriptions found</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8">
-            <p className="text-gray-600 dark:text-gray-400">
-              No subscriptions are currently active for this contract.
-            </p>
-            <Button onClick={fetchContractSubscriptions} variant="outline" className="mt-4">
-              Retry
-            </Button>
+      <div className="glass-card card-hover rounded-2xl p-6">
+        <div className="flex items-center space-x-3 mb-6">
+          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
+            <Package className="w-6 h-6 text-white" />
           </div>
-        </CardContent>
-      </Card>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Managed Subscriptions</h3>
+            <p className="text-sm text-gray-600">No active subscriptions found</p>
+          </div>
+        </div>
+        <div className="text-center py-8">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Package className="w-8 h-8 text-gray-400" />
+          </div>
+          <h4 className="text-lg font-medium text-gray-900 mb-2">No Active Subscriptions</h4>
+          <p className="text-gray-600 mb-4">
+            No subscriptions are currently active for this contract.
+          </p>
+          <Button onClick={fetchContractSubscriptions} variant="outline">
+            Retry
+          </Button>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Your Subscriptions</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className={`grid gap-6 ${contractSubscriptions.subscriptions.length === 1 ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
+    <div className="glass-card card-hover rounded-2xl p-6">
+      <div className="flex items-center space-x-3 mb-6">
+        <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
+          <Package className="w-6 h-6 text-white" />
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900">Managed Subscriptions</h3>
+          <p className="text-sm text-gray-600">Manage your subscription quantities</p>
+        </div>
+      </div>
+      <div className={`grid gap-6 ${contractSubscriptions.subscriptions.length === 1 ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
           {contractSubscriptions.subscriptions.map((subscription) => {
             const currentQuantity = getCurrentQuantity(subscription.quantity_schedule);
             const pendingQuantity = pendingQuantities[subscription.id];
@@ -210,13 +228,25 @@ export function ManagedSubscription() {
                     </div>
                   </div>
                   <Button
-                    size="sm"
                     onClick={() => handleUpdateQuantity(subscription.id, displayQuantity)}
                     disabled={updatingQuantities.has(subscription.id) || !hasChanges}
-                    variant={hasChanges ? "default" : "outline"}
-                    className="w-full"
+                    className={`w-full px-4 py-1.5 rounded-lg font-medium shadow-lg transition-all duration-200 text-sm ${
+                      hasChanges && !updatingQuantities.has(subscription.id)
+                        ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+                        : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    }`}
                   >
-                    Update Quantity
+                    {updatingQuantities.has(subscription.id) ? (
+                      <>
+                        <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+                        Updating...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-3 h-3 mr-1.5" />
+                        Update Quantity
+                      </>
+                    )}
                   </Button>
                 </div>
 
@@ -233,8 +263,7 @@ export function ManagedSubscription() {
               </div>
             );
           })}
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
