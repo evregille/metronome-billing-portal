@@ -19,6 +19,7 @@ export function Balance() {
     fetchCommitsEmbeddable, 
     fetchAlerts,
     rechargeBalance,
+    updateAutoRecharge,
     createBalanceAlert,
     deleteAlert,
     commitsEmbeddableUrl, 
@@ -32,7 +33,12 @@ export function Balance() {
   const [alertThreshold, setAlertThreshold] = useState(1000);
   const [, setAlertEnabled] = useState(true);
   const [showRechargeModal, setShowRechargeModal] = useState(false);
+  const [showAutoRechargeModal, setShowAutoRechargeModal] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Check if auto recharge is already configured
+  const autoRechargeConfig = config.contract_details?.prepaid_balance_threshold_configuration;
+  const hasAutoRechargeConfig = !!autoRechargeConfig; // Check if config exists regardless of enabled state
 
   useEffect(() => {
     (async () => {
@@ -48,7 +54,6 @@ export function Balance() {
       })();
     }
   }, [showEmbeddable, config, fetchCommitsEmbeddable]);
-
 
   // Initialize alert form when balance alert exists
   useEffect(() => {
@@ -91,12 +96,14 @@ export function Balance() {
     }
   };
 
-  const handleRecharge = async (amount: number) => {
+  const handleRecharge = async (amount: number, threshold?: number) => {
     try {
-      await rechargeBalance(amount);
+      await rechargeBalance(amount, threshold);
       return {
         success: true,
-        message: `Successfully recharged ${formatCurrency(amount, balance?.currency_name || "USD")} to your account.`
+        message: threshold 
+          ? "Auto recharge configured successfully! Your balance will be automatically recharged when it falls below the threshold."
+          : `Successfully recharged ${formatCurrency(amount, balance?.currency_name || "USD")} to your account.`
       };
     } catch (error) {
       // The error message from the hook should already be user-friendly
@@ -105,6 +112,23 @@ export function Balance() {
       return {
         success: false,
         message: errorMessage
+      };
+    }
+  };
+
+  const handleUpdateAutoRecharge = async (isEnabled?: boolean, thresholdAmount?: number, rechargeToAmount?: number) => {
+    try {
+      await updateAutoRecharge(isEnabled, thresholdAmount, rechargeToAmount);
+      return {
+        success: true,
+        message: isEnabled === false 
+          ? "Auto recharge has been disabled successfully."
+          : "Auto recharge configuration has been updated successfully."
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to update auto recharge"
       };
     }
   };
@@ -165,23 +189,33 @@ export function Balance() {
             <p className="text-sm text-gray-600">Available funds</p>
           </div>
         </div>
-        {balance && (
-          <div className="text-right">
-            <div className="text-3xl font-bold text-gray-900">
-              {formatCurrency(balance.total_granted - balance.total_used, balance.currency_name)}
-            </div>
-            <div className="text-sm text-gray-600 mb-3">remaining</div>
-
-            {/* Recharge Button */}
-              <Button 
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-4 py-1.5 rounded-lg font-medium shadow-lg transition-all duration-200 text-sm"
-                onClick={() => setShowRechargeModal(true)}
-              >
-                <Wallet className="w-3 h-3 mr-1.5" />
-                Recharge
-              </Button>
+        <div className="text-right">
+          <div className="text-3xl font-bold text-gray-900">
+            {balance 
+              ? formatCurrency(balance.total_granted - balance.total_used, balance.currency_name)
+              : formatCurrency(0, "USD")
+            }
           </div>
-        )}
+          <div className="text-sm text-gray-600 mb-3">remaining</div>
+
+          {/* Recharge Buttons - Always visible */}
+          <div className="flex space-x-2">
+            <Button 
+              className="bg-transparent hover:bg-transparent border border-blue-600 text-blue-600 px-4 py-1.5 rounded-lg font-medium transition-all duration-200 text-sm"
+              onClick={() => setShowRechargeModal(true)}
+            >
+              <Wallet className="w-3 h-3 mr-1.5" />
+              Recharge
+            </Button>
+            <Button 
+              className="bg-transparent hover:bg-transparent border border-blue-600 text-blue-600 px-4 py-1.5 rounded-lg font-medium transition-all duration-200 text-sm"
+              onClick={() => setShowAutoRechargeModal(true)}
+            >
+              <Wallet className="w-3 h-3 mr-1.5" />
+              {hasAutoRechargeConfig ? "Update Auto Recharge" : "Auto Recharge"}
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Content - Either balance details or embeddable */}
@@ -196,7 +230,7 @@ export function Balance() {
               </div>
             </div>
           ) : commitsEmbeddableUrl ? (
-            <div className="overflow-hidden rounded-lg border border-gray-200 h-96">
+            <div className="overflow-hidden rounded-lg h-96">
               <iframe
                 src={commitsEmbeddableUrl}
                 className="w-full h-full"
@@ -442,6 +476,19 @@ export function Balance() {
         currencyName={balance?.currency_name || "USD"}
         currentBalance={balance ? balance.total_granted - balance.total_used : 0}
         rechargeProductId={rechargeProductId}
+      />
+
+      {/* Auto Recharge Modal */}
+      <RechargeModal
+        isOpen={showAutoRechargeModal}
+        onClose={() => setShowAutoRechargeModal(false)}
+        onRecharge={handleRecharge}
+        onUpdateAutoRecharge={handleUpdateAutoRecharge}
+        currencyName={balance?.currency_name || "USD"}
+        currentBalance={balance ? balance.total_granted - balance.total_used : 0}
+        rechargeProductId={rechargeProductId}
+        isAutoRecharge={true}
+        existingAutoRecharge={autoRechargeConfig}
       />
     </div>
   );

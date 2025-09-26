@@ -19,16 +19,24 @@ import {
   fetchMetronomeInvoiceBreakdown,
   fetchRawUsageData as fetchRawUsageDataAction,
   rechargeBalance as rechargeBalanceAction,
+  updateAutoRecharge as updateAutoRechargeAction,
+  updateThresholdBalance as updateThresholdBalanceAction,
   fetchBillableMetric as fetchBillableMetricAction,
   sendUsageData as sendUsageDataAction,
   previewEvents as previewEventsAction,
-  fetchContractSubscriptions as fetchContractSubscriptionsAction,
   updateSubscriptionQuantity as updateSubscriptionQuantityAction,
+  retrieveContractDetails as retrieveContractDetailsAction,
+  fetchCustomerDetails as fetchCustomerDetailsAction,
 } from "@/actions/metronome";
 
 // Types based on the backend API
 interface MetronomeConfig {
   customer_id: string;
+  contract_id?: string;
+  customer_details?: any;
+  contract_details?: any;
+  invoice_draft_details?: any;
+  invoice_breakdown_details?: any;
 }
 
 interface Balance {
@@ -126,35 +134,7 @@ interface RawUsageData {
   usage_data: BillableMetricUsage[];
 }
 
-interface Subscription {
-  id: string;
-  subscription_rate: {
-    billing_frequency: string;
-    product: {
-      id: string;
-      name: string;
-    };
-  };
-  collection_schedule: string;
-  proration: {
-    is_prorated: boolean;
-    invoice_behavior: string;
-  };
-  quantity_schedule: Array<{
-    quantity: number;
-    starting_at: string;
-  }>;
-  quantity_management_mode: string;
-  starting_at: string;
-  ending_before: string;
-  fiat_credit_type_id: string;
-  custom_fields: Record<string, any>;
-}
 
-interface ContractSubscriptions {
-  contract_id: string | null;
-  subscriptions: Subscription[];
-}
 
 interface LoadingStates {
   balance: boolean;
@@ -165,7 +145,8 @@ interface LoadingStates {
   usageEmbeddable: boolean;
   invoices: boolean;
   rawUsageData: boolean;
-  contractSubscriptions: boolean;
+  customerDetails: boolean;
+  contractDetails: boolean;
 }
 
 interface MetronomeContextType {
@@ -176,7 +157,6 @@ interface MetronomeContextType {
   alerts: AlertsResult | null;
   invoices: InvoiceListItem[] | null;
   rawUsageData: RawUsageData | null;
-  contractSubscriptions: ContractSubscriptions | null;
   invoiceEmbeddableUrl: string | null;
   commitsEmbeddableUrl: string | null;
   usageEmbeddableUrl: string | null;
@@ -184,14 +164,17 @@ interface MetronomeContextType {
   isCustomerTransitioning: boolean;
   rechargeProductId?: string;
   fetchBalance: () => Promise<void>;
-  fetchCosts: () => Promise<void>;
+  fetchCosts: (forceRefresh?: boolean) => Promise<void>;
   fetchCurrentSpend: () => Promise<void>;
   fetchAlerts: () => Promise<void>;
   fetchInvoices: () => Promise<void>;
-  fetchRawUsageData: () => Promise<void>;
-  fetchContractSubscriptions: () => Promise<void>;
+  fetchRawUsageData: (forceRefresh?: boolean) => Promise<void>;
+  fetchCustomerDetails: () => Promise<void>;
+  fetchContractDetails: () => Promise<void>;
   updateSubscriptionQuantity: (contractId: string, subscriptionId: string, newQuantity: number) => Promise<void>;
-  rechargeBalance: (rechargeAmount: number) => Promise<void>;
+  rechargeBalance: (rechargeAmount: number, thresholdAmount?: number) => Promise<void>;
+  updateAutoRecharge: (isEnabled?: boolean, thresholdAmount?: number, rechargeToAmount?: number) => Promise<void>;
+  updateThresholdBalance: (isEnabled?: boolean, spendThresholdAmount?: number) => Promise<void>;
   fetchInvoiceEmbeddable: () => Promise<void>;
   fetchCommitsEmbeddable: () => Promise<void>;
   fetchUsageEmbeddable: () => Promise<void>;
@@ -208,16 +191,23 @@ const MetronomeContext = createContext<MetronomeContextType | undefined>(undefin
 export function MetronomeProvider({ 
   children, 
   customerId,
+  contractId,
   apiKey,
   rechargeProductId
 }: { 
   children: React.ReactNode;
   customerId: string;
+  contractId?: string;
   apiKey?: string;
   rechargeProductId?: string;
 }) {
   const [config, setConfig] = useState<MetronomeConfig>({
     customer_id: customerId,
+    contract_id: contractId,
+    customer_details: undefined,
+    contract_details: undefined,
+    invoice_draft_details: undefined,
+    invoice_breakdown_details: undefined,
   });
 
   const [balance, setBalance] = useState<Balance | null>(null);
@@ -226,7 +216,26 @@ export function MetronomeProvider({
   const [alerts, setAlerts] = useState<AlertsResult | null>(null);
   const [invoices, setInvoices] = useState<InvoiceListItem[] | null>(null);
   const [rawUsageData, setRawUsageData] = useState<RawUsageData | null>(null);
-  const [contractSubscriptions, setContractSubscriptions] = useState<ContractSubscriptions | null>(null);
+  
+  // Cache flags to track if data has been fetched for current customer/contract
+  const [costsCacheKey, setCostsCacheKey] = useState<string>("");
+  const [usageCacheKey, setUsageCacheKey] = useState<string>("");
+
+  // Clear cache when customer or contract changes
+  useEffect(() => {
+    const currentCacheKey = `${config.customer_id}-${config.contract_id}`;
+    
+    // If the cache key doesn't match current customer/contract, clear the cache
+    if (costsCacheKey && costsCacheKey !== currentCacheKey) {
+      setCosts(null);
+      setCostsCacheKey("");
+    }
+    
+    if (usageCacheKey && usageCacheKey !== currentCacheKey) {
+      setRawUsageData(null);
+      setUsageCacheKey("");
+    }
+  }, [config.customer_id, config.contract_id, costsCacheKey, usageCacheKey]);
   const [invoiceEmbeddableUrl, setInvoiceEmbeddableUrl] = useState<string | null>(null);
   const [commitsEmbeddableUrl, setCommitsEmbeddableUrl] = useState<string | null>(null);
   const [usageEmbeddableUrl, setUsageEmbeddableUrl] = useState<string | null>(null);
@@ -240,25 +249,25 @@ export function MetronomeProvider({
     usageEmbeddable: false,
     invoices: false,
     rawUsageData: false,
-    contractSubscriptions: false,
+    customerDetails: false,
+    contractDetails: false,
   });
 
   const [isCustomerTransitioning, setIsCustomerTransitioning] = useState(false);
 
-  // Update customer_id when it changes
+  // Update customer_id and contract_id when they change
   useEffect(() => {
-    if (customerId && customerId !== config.customer_id) {
+    if (customerId && (customerId !== config.customer_id || contractId !== config.contract_id)) {
       // Set transitioning state
       setIsCustomerTransitioning(true);
       
-      // Reset all data when customer changes
+      // Reset all data when customer or contract changes
       setBalance(null);
       setCosts(null);
       setCurrentSpend(null);
       setAlerts(null);
       setInvoices(null);
       setRawUsageData(null);
-      setContractSubscriptions(null);
       setInvoiceEmbeddableUrl(null);
       setCommitsEmbeddableUrl(null);
       setUsageEmbeddableUrl(null);
@@ -266,6 +275,11 @@ export function MetronomeProvider({
       // Update config with new object to trigger re-renders
       setConfig({
         customer_id: customerId,
+        contract_id: contractId,
+        customer_details: undefined, // Clear customer details when changing
+        contract_details: undefined, // Clear contract details when changing
+        invoice_draft_details: undefined, // Clear invoice draft details when changing
+        invoice_breakdown_details: undefined, // Clear invoice breakdown details when changing
       });
       
       // Clear transitioning state after a brief delay to allow components to render
@@ -273,14 +287,15 @@ export function MetronomeProvider({
         setIsCustomerTransitioning(false);
       }, 100);
     }
-  }, [customerId, config.customer_id]);
+  }, [customerId, contractId, config.customer_id, config.contract_id]);
 
   const fetchBalance = useCallback(async () => {
-    if (!config.customer_id) return;
+    if (!config.customer_id || !config.contract_id) return;
     setLoadingStates(prev => ({ ...prev, balance: true }));
     try {
       const response = await fetchMetronomeCustomerBalance(
         config.customer_id,
+        config.contract_id, // Pass contract_id to filter by contract
         apiKey, // This can be undefined, and backend will use env var
       );
 
@@ -294,10 +309,18 @@ export function MetronomeProvider({
     } finally {
       setLoadingStates(prev => ({ ...prev, balance: false }));
     }
-  }, [config.customer_id, apiKey]);
+  }, [config.customer_id, config.contract_id, apiKey]);
 
-  const fetchCosts = useCallback(async () => {
-    if (!config.customer_id) return;
+  const fetchCosts = useCallback(async (forceRefresh = false) => {
+    if (!config.customer_id || !config.contract_id) return;
+
+    // Create cache key for current customer/contract combination
+    const currentCacheKey = `${config.customer_id}-${config.contract_id}`;
+    
+    // If we already have data for this customer/contract and not forcing refresh, don't fetch again
+    if (!forceRefresh && costsCacheKey === currentCacheKey && costs) {
+      return;
+    }
 
     setLoadingStates(prev => ({ ...prev, costs: true }));
     try {
@@ -309,37 +332,51 @@ export function MetronomeProvider({
 
       if (response.status === "success") {
         setCosts(response.result.costs);
+        setCostsCacheKey(currentCacheKey); // Update cache key
+        // Store raw invoice breakdown details in config
+        setConfig(prev => ({
+          ...prev,
+          invoice_breakdown_details: response.rawData, // Store the raw Metronome payload
+        }));
       } else {
         console.error("Failed to fetch costs:", response.message);
+        setCostsCacheKey(""); // Clear cache key on error
       }
     } catch (error) {
       console.error("Error fetching costs:", error);
+      setCostsCacheKey(""); // Clear cache key on error
     } finally {
       setLoadingStates(prev => ({ ...prev, costs: false }));
     }
-  }, [config.customer_id, apiKey]);
+  }, [config.customer_id, config.contract_id, apiKey, costsCacheKey, costs]);
 
   const fetchCurrentSpend = useCallback(async () => {
-    if (!config.customer_id) return;
+    if (!config.customer_id || !config.contract_id) return;
 
     try {
       const response = await fetchCurrentSpendDraftInvoice(
         config.customer_id,
+        config.contract_id, // Pass contract_id to filter by contract
         apiKey, // This can be undefined, and backend will use env var
       );
 
       if (response.status === "success") {
         setCurrentSpend(response.result);
+        // Store raw invoice draft details in config
+        setConfig(prev => ({
+          ...prev,
+          invoice_draft_details: response.rawData, // Store the raw Metronome payload
+        }));
       } else {
         console.error("Failed to fetch current spend:", response.message);
       }
     } catch (error) {
       console.error("Error fetching current spend:", error);
     }
-  }, [config.customer_id, apiKey]);
+  }, [config.customer_id, config.contract_id, apiKey]);
 
   const fetchAlerts = useCallback(async () => {
-    if (!config.customer_id) return;
+    if (!config.customer_id || !config.contract_id) return;
 
     setLoadingStates(prev => ({ ...prev, alerts: true }));
     try {
@@ -358,10 +395,10 @@ export function MetronomeProvider({
     } finally {
       setLoadingStates(prev => ({ ...prev, alerts: false }));
     }
-  }, [config.customer_id, apiKey]);
+  }, [config.customer_id, config.contract_id, apiKey]);
 
   const fetchInvoices = useCallback(async () => {
-    if (!config.customer_id) return;
+    if (!config.customer_id || !config.contract_id) return;
 
     setLoadingStates(prev => ({ ...prev, invoices: true }));
     try {
@@ -380,10 +417,10 @@ export function MetronomeProvider({
     } finally {
       setLoadingStates(prev => ({ ...prev, invoices: false }));
     }
-  }, [config.customer_id, apiKey]);
+  }, [config.customer_id, config.contract_id, apiKey]);
 
   const fetchInvoiceEmbeddable = useCallback(async () => {
-    if (!config.customer_id) return;
+    if (!config.customer_id || !config.contract_id) return;
 
     setLoadingStates(prev => ({ ...prev, invoiceEmbeddable: true }));
     try {
@@ -403,10 +440,10 @@ export function MetronomeProvider({
     } finally {
       setLoadingStates(prev => ({ ...prev, invoiceEmbeddable: false }));
     }
-  }, [config.customer_id, apiKey]);
+  }, [config.customer_id, config.contract_id, apiKey]);
 
   const fetchCommitsEmbeddable = useCallback(async () => {
-    if (!config.customer_id) return;
+    if (!config.customer_id || !config.contract_id) return;
 
     setLoadingStates(prev => ({ ...prev, commitsEmbeddable: true }));
     try {
@@ -426,12 +463,12 @@ export function MetronomeProvider({
     } finally {
       setLoadingStates(prev => ({ ...prev, commitsEmbeddable: false }));
     }
-  }, [config.customer_id, apiKey]);
+  }, [config.customer_id, config.contract_id, apiKey]);
 
   const fetchUsageEmbeddable = useCallback(async () => {
-    console.log("fetchUsageEmbeddable called with customer_id:", config.customer_id);
-    if (!config.customer_id) {
-      console.log("No customer_id, returning early");
+    console.log("fetchUsageEmbeddable called with customer_id:", config.customer_id, "contract_id:", config.contract_id);
+    if (!config.customer_id || !config.contract_id) {
+      console.log("No customer_id or contract_id, returning early");
       return;
     }
 
@@ -457,10 +494,18 @@ export function MetronomeProvider({
     } finally {
       setLoadingStates(prev => ({ ...prev, usageEmbeddable: false }));
     }
-  }, [config.customer_id, apiKey]);
+  }, [config.customer_id, config.contract_id, apiKey]);
 
-  const fetchRawUsageData = useCallback(async () => {
-    if (!config.customer_id) return;
+  const fetchRawUsageData = useCallback(async (forceRefresh = false) => {
+    if (!config.customer_id || !config.contract_id) return;
+
+    // Create cache key for current customer/contract combination
+    const currentCacheKey = `${config.customer_id}-${config.contract_id}`;
+    
+    // If we already have data for this customer/contract and not forcing refresh, don't fetch again
+    if (!forceRefresh && usageCacheKey === currentCacheKey && rawUsageData) {
+      return;
+    }
 
     setLoadingStates(prev => ({ ...prev, rawUsageData: true }));
     try {
@@ -471,37 +516,71 @@ export function MetronomeProvider({
 
       if (response.status === "success") {
         setRawUsageData(response.result || null);
+        setUsageCacheKey(currentCacheKey); // Update cache key
       } else {
         console.error("Failed to fetch raw usage data:", response.message);
+        setUsageCacheKey(""); // Clear cache key on error
       }
     } catch (error) {
       console.error("Error fetching raw usage data:", error);
+      setUsageCacheKey(""); // Clear cache key on error
     } finally {
       setLoadingStates(prev => ({ ...prev, rawUsageData: false }));
     }
-  }, [config.customer_id, apiKey]);
+  }, [config.customer_id, config.contract_id, apiKey, usageCacheKey, rawUsageData]);
 
-  const fetchContractSubscriptions = useCallback(async () => {
+  const fetchCustomerDetails = useCallback(async () => {
     if (!config.customer_id) return;
 
-    setLoadingStates(prev => ({ ...prev, contractSubscriptions: true }));
+    setLoadingStates(prev => ({ ...prev, customerDetails: true }));
     try {
-      const response = await fetchContractSubscriptionsAction(
+      const response = await fetchCustomerDetailsAction(
         config.customer_id,
         apiKey, // This can be undefined, and backend will use env var
       );
 
       if (response.status === "success") {
-        setContractSubscriptions(response.result || null);
+        // Update config with customer details
+        setConfig(prev => ({
+          ...prev,
+          customer_details: response.result,
+        }));
       } else {
-        console.error("Failed to fetch contract subscriptions:", response.message);
+        console.error("Failed to fetch customer details:", response.message);
       }
     } catch (error) {
-      console.error("Error fetching contract subscriptions:", error);
+      console.error("Error fetching customer details:", error);
     } finally {
-      setLoadingStates(prev => ({ ...prev, contractSubscriptions: false }));
+      setLoadingStates(prev => ({ ...prev, customerDetails: false }));
     }
   }, [config.customer_id, apiKey]);
+
+  const fetchContractDetails = useCallback(async () => {
+    if (!config.customer_id || !config.contract_id) return;
+
+    setLoadingStates(prev => ({ ...prev, contractDetails: true }));
+    try {
+      const response = await retrieveContractDetailsAction(
+        config.customer_id,
+        config.contract_id,
+        apiKey, // This can be undefined, and backend will use env var
+      );
+
+      if (response.status === "success") {
+        // Update config with contract details
+        setConfig(prev => ({
+          ...prev,
+          contract_details: response.result,
+        }));
+      } else {
+        console.error("Failed to fetch contract details:", response.message);
+      }
+    } catch (error) {
+      console.error("Error fetching contract details:", error);
+    } finally {
+      setLoadingStates(prev => ({ ...prev, contractDetails: false }));
+    }
+  }, [config.customer_id, config.contract_id, apiKey]);
 
   const updateSubscriptionQuantity = useCallback(async (contractId: string, subscriptionId: string, newQuantity: number) => {
     if (!config.customer_id) return;
@@ -516,8 +595,8 @@ export function MetronomeProvider({
       );
 
       if (response.status === "success") {
-        // Refresh contract subscriptions after successful update
-        await fetchContractSubscriptions();
+        // Refresh contract details after successful update
+        await fetchContractDetails();
       } else {
         console.error("Failed to update subscription quantity:", response.message);
         throw new Error(response.message || "Failed to update subscription quantity");
@@ -526,11 +605,9 @@ export function MetronomeProvider({
       console.error("Error updating subscription quantity:", error);
       throw error;
     }
-  }, [config.customer_id, apiKey, fetchContractSubscriptions]);
+  }, [config.customer_id, apiKey, fetchContractDetails]);
 
-  const rechargeBalance = useCallback(async (rechargeAmount: number) => {
-  
-
+  const rechargeBalance = useCallback(async (rechargeAmount: number, thresholdAmount?: number) => {
     try {
       // Check if balance data is available
       if (!balance) {
@@ -552,12 +629,18 @@ export function MetronomeProvider({
         rechargeAmount,
         balance.currency_id,
         rechargeProductId, // Pass the recharge product ID from settings
+        config.contract_details, // Pass contract details to avoid listing contracts
+        thresholdAmount, // Pass threshold for auto recharge
         apiKey, // This can be undefined, and backend will use env var
       );
 
       if (response.status === "success") {
         // Refresh balance data after successful recharge
         await fetchBalance();
+        // Also refresh contract details if auto recharge was configured
+        if (thresholdAmount) {
+          await fetchContractDetails();
+        }
       } else {
         console.error("Failed to recharge balance:", response.message);
         throw new Error(response.message || "Failed to recharge balance");
@@ -566,7 +649,66 @@ export function MetronomeProvider({
       console.error("Error recharging balance:", error);
       throw error; // Re-throw so the modal can handle it
     }
-  }, [config.customer_id, apiKey, rechargeProductId, balance, fetchBalance]);
+  }, [config.customer_id, config.contract_details, apiKey, rechargeProductId, balance, fetchBalance, fetchContractDetails]);
+
+  const updateAutoRecharge = useCallback(async (isEnabled?: boolean, thresholdAmount?: number, rechargeToAmount?: number) => {
+    try {
+      if (!config.customer_id || !config.contract_id) {
+        throw new Error("Customer ID and Contract ID are required to update auto recharge");
+      }
+
+      const response = await updateAutoRechargeAction(
+        config.customer_id,
+        config.contract_id,
+        isEnabled,
+        thresholdAmount,
+        rechargeToAmount,
+        apiKey, // This can be undefined, and backend will use env var
+      );
+
+      if (response.status === "success") {
+        // Refresh contract details to get updated auto recharge configuration
+        await fetchContractDetails();
+        // Also refresh balance to reflect any changes
+        await fetchBalance();
+      } else {
+        console.error("Failed to update auto recharge:", response.message);
+        throw new Error(response.message || "Failed to update auto recharge");
+      }
+    } catch (error) {
+      console.error("Error updating auto recharge:", error);
+      throw error; // Re-throw so the modal can handle it
+    }
+  }, [config.customer_id, config.contract_id, apiKey, fetchContractDetails, fetchBalance]);
+
+  const updateThresholdBalance = useCallback(async (isEnabled?: boolean, spendThresholdAmount?: number) => {
+    try {
+      if (!config.customer_id || !config.contract_id) {
+        throw new Error("Customer ID and Contract ID are required to update spend threshold");
+      }
+
+      const response = await updateThresholdBalanceAction(
+        config.customer_id,
+        config.contract_id,
+        isEnabled,
+        spendThresholdAmount,
+        apiKey, // This can be undefined, and backend will use env var
+      );
+
+      if (response.status === "success") {
+        // Refresh contract details to get updated spend threshold configuration
+        await fetchContractDetails();
+        // Also refresh current spend to reflect any changes
+        await fetchCurrentSpend();
+      } else {
+        console.error("Failed to update spend threshold:", response.message);
+        throw new Error(response.message || "Failed to update spend threshold");
+      }
+    } catch (error) {
+      console.error("Error updating spend threshold:", error);
+      throw error; // Re-throw so the modal can handle it
+    }
+  }, [config.customer_id, config.contract_id, apiKey, fetchContractDetails, fetchCurrentSpend]);
 
   const createSpendAlert = useCallback(async (threshold: number) => {
     if (!config.customer_id) return;
@@ -703,7 +845,6 @@ export function MetronomeProvider({
     alerts,
     invoices,
     rawUsageData,
-    contractSubscriptions,
     invoiceEmbeddableUrl,
     commitsEmbeddableUrl,
     usageEmbeddableUrl,
@@ -716,9 +857,12 @@ export function MetronomeProvider({
     fetchAlerts,
     fetchInvoices,
     fetchRawUsageData,
-    fetchContractSubscriptions,
+    fetchCustomerDetails,
+    fetchContractDetails,
     updateSubscriptionQuantity,
     rechargeBalance,
+    updateAutoRecharge,
+    updateThresholdBalance,
     fetchInvoiceEmbeddable,
     fetchCommitsEmbeddable,
     fetchUsageEmbeddable,

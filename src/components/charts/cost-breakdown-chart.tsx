@@ -206,8 +206,50 @@ export function CostBreakdownChart() {
     );
   }
 
-  if (loadingStates.costs || Object.keys(costs?.products || {}).length === 0) {
-    return <></>
+  if (loadingStates.costs) {
+    return (
+      <div className="glass-card card-hover rounded-2xl p-6">
+        <div className="flex items-center space-x-3 mb-6">
+          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
+            <BarChart3 className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Cost Breakdown</h3>
+            <p className="text-sm text-gray-600">Loading cost data...</p>
+          </div>
+        </div>
+        
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+        </div>
+      </div>
+    );
+  }
+
+  if (Object.keys(costs?.products || {}).length === 0) {
+    return (
+      <div className="glass-card card-hover rounded-2xl p-6">
+        <div className="flex items-center space-x-3 mb-6">
+          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
+            <BarChart3 className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Cost Breakdown</h3>
+            <p className="text-sm text-gray-600">No cost data available</p>
+          </div>
+        </div>
+        
+        <div className="text-center py-12">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <BarChart3 className="w-8 h-8 text-gray-400" />
+          </div>
+          <h4 className="text-lg font-medium text-gray-900 mb-2">No Cost Data Available</h4>
+          <p className="text-gray-600 mb-4">
+            No cost breakdown data found for the selected period.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   if (!availableProducts.length || availableProducts.length === 1) {
@@ -257,40 +299,45 @@ export function CostBreakdownChart() {
         </div>
         
         {/* Filters */}
-        <div className="flex items-center space-x-3">
-          <Filter className="w-4 h-4 text-gray-500" />
+        <div className="flex items-center space-x-6">
           
           {/* Product Filter */}
-          <div className="relative">
-            <select
-              value={selectedProduct}
-              onChange={(e) => handleProductChange(e.target.value)}
-              className="appearance-none bg-white border border-gray-300 rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            >
-              {availableProducts.map((product) => (
-                <option key={product.name} value={product.name}>
-                  {product.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-          </div>
-
-          {/* Property Filter - Only show for specific products */}
-          {selectedProduct !== "All Products" && availableProperties.length > 0 && (
+          <div className="flex flex-col space-y-1">
+            <label className="text-xs font-medium text-gray-600">Filter by Product</label>
             <div className="relative">
               <select
-                value={selectedProperty}
-                onChange={(e) => handlePropertyChange(e.target.value)}
+                value={selectedProduct}
+                onChange={(e) => handleProductChange(e.target.value)}
                 className="appearance-none bg-white border border-gray-300 rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               >
-                {availableProperties.map((property) => (
-                  <option key={property} value={property}>
-                    {property.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                {availableProducts.map((product) => (
+                  <option key={product.name} value={product.name}>
+                    {product.name}
                   </option>
                 ))}
               </select>
               <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Property Filter - Only show for specific products */}
+          {selectedProduct !== "All Products" && availableProperties.length > 0 && (
+            <div className="flex flex-col space-y-1">
+              <label className="text-xs font-medium text-gray-600">Group by</label>
+              <div className="relative">
+                <select
+                  value={selectedProperty}
+                  onChange={(e) => handlePropertyChange(e.target.value)}
+                  className="appearance-none bg-white border border-gray-300 rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                >
+                  {availableProperties.map((property) => (
+                    <option key={property} value={property}>
+                      {property.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
             </div>
           )}
         </div>

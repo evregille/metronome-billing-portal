@@ -3,25 +3,30 @@
 import { useEffect, useState } from "react";
 import { useMetronome } from "@/hooks/use-metronome-config";
 import { formatCurrency, getCoinSymbol } from "@/lib/utils";
-import { DollarSign, Package, Bell, Trash2, Loader2 } from "lucide-react";
+import { DollarSign, Package, Bell, Trash2, Loader2, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { SpendThresholdModal } from "@/components/spend-threshold-modal";
 
 export function Spend() {
   const { 
     currentSpend, 
     alerts,
+    config,
+    rechargeProductId,
     fetchCurrentSpend, 
     fetchAlerts,
     createSpendAlert,
     deleteAlert,
+    updateThresholdBalance,
     isCustomerTransitioning
   } = useMetronome();
   
   const [isEditingAlert, setIsEditingAlert] = useState(false);
   const [alertThreshold, setAlertThreshold] = useState(1000);
   const [, setAlertEnabled] = useState(true);
+  const [showSpendThresholdModal, setShowSpendThresholdModal] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -50,6 +55,23 @@ export function Spend() {
   const totalSpend: number = Object.values(totalSpendByCurrency).reduce((sum, amount) => sum + amount.total, 0) 
       
   const productCount = currentSpend?.productTotals ? Object.keys(currentSpend.productTotals).length : 0;
+  
+  // Check if spend threshold configuration exists
+  const spendThresholdConfig = config.contract_details?.spend_threshold_configuration;
+  const hasSpendThresholdConfig = spendThresholdConfig && spendThresholdConfig.spend_threshold_amount;
+
+  // Wrapper function for updateThresholdBalance to match modal's expected return type
+  const handleUpdateThreshold = async (isEnabled?: boolean, spendThresholdAmount?: number) => {
+    try {
+      await updateThresholdBalance(isEnabled, spendThresholdAmount);
+      return { success: true, message: "Spend threshold updated successfully" };
+    } catch (error) {
+      return { 
+        success: false, 
+        message: error instanceof Error ? error.message : "Failed to update spend threshold" 
+      };
+    }
+  };
   // Prepare data for balance drawdown by product
   const balanceDrawdownData = currentSpend?.productTotals ? 
     Object.entries(currentSpend.productTotals)
@@ -199,7 +221,18 @@ export function Spend() {
               {formatCurrency(totalSpend)}
             </div>
           )}
-          <div className="text-sm text-gray-600">{productCount} products</div>
+          <div className="text-sm text-gray-600 mb-3">{productCount} products</div>
+          
+          {/* Spend Threshold Button */}
+          <div className="flex justify-end">
+            <Button 
+              className="bg-transparent hover:bg-transparent border border-blue-600 text-blue-600 px-4 py-1.5 rounded-lg font-medium transition-all duration-200 text-sm"
+              onClick={() => setShowSpendThresholdModal(true)}
+            >
+              <Target className="w-3 h-3 mr-1.5" />
+              {hasSpendThresholdConfig ? "Update Spend Threshold" : "Spend Threshold"}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -383,18 +416,11 @@ export function Spend() {
           ) : (
             // Show create alert form
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-3">
+              <div className="mb-3">
                 <div>
                   <h5 className="font-medium text-gray-900">Control how much you spend</h5>
                   <p className="text-sm text-gray-600">Receive a notification when your spending reaches a threshold</p>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsEditingAlert(!isEditingAlert)}
-                >
-                  Create
-                </Button>
               </div>
               
               {isEditingAlert && (
@@ -429,6 +455,14 @@ export function Spend() {
           )}
         </div>
       
+      {/* Spend Threshold Modal */}
+      <SpendThresholdModal
+        isOpen={showSpendThresholdModal}
+        onClose={() => setShowSpendThresholdModal(false)}
+        onUpdateThreshold={handleUpdateThreshold}
+        existingSpendThreshold={spendThresholdConfig}
+        rechargeProductId={rechargeProductId}
+      />
     </div>
   );
 }

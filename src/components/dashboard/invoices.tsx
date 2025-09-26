@@ -59,15 +59,20 @@ export function Invoices() {
     }
   };
 
-  // Sort invoices with DRAFT status first
+  // Sort invoices by date (most recent first), with DRAFT status prioritized
   const sortedInvoices = invoices ? [...invoices].sort((a, b) => {
+    // First, prioritize DRAFT status
     if (a.status.toLowerCase() === 'draft' && b.status.toLowerCase() !== 'draft') {
       return -1;
     }
     if (a.status.toLowerCase() !== 'draft' && b.status.toLowerCase() === 'draft') {
       return 1;
     }
-    return 0;
+    
+    // Then sort by end_timestamp (most recent first)
+    const dateA = new Date(a.end_timestamp).getTime();
+    const dateB = new Date(b.end_timestamp).getTime();
+    return dateB - dateA; // Most recent first (descending order)
   }) : [];
 
   // Show loading state during customer transition

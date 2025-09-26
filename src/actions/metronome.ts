@@ -46,7 +46,7 @@ type DashboardType = "invoices" | "usage" | "commits_and_credits";
 
 type WindowSize = "HOUR" | "DAY" | undefined;
 type ApiResponse<T> =
-  | { status: "success"; result: T }
+  | { status: "success"; result: T  ; rawData?: any }
   | { status: "error"; message?: string };
 type BalanceResult = {
   total_granted: number;
@@ -171,6 +171,7 @@ export async function createMetronomeEmbeddableLink(
 
 export async function fetchMetronomeCustomerBalance(
   customer_id: string,
+  contract_id?: string,
   api_key?: string,
 ): Promise<ApiResponse<BalanceResult>> {
   try {
@@ -183,9 +184,15 @@ export async function fetchMetronomeCustomerBalance(
       include_ledgers: true,
     });
 
+    // Filter grants by contract_id if provided
+    let filteredData = response.data;
+    if (contract_id) {
+      filteredData = response.data.filter((grant) => grant.contract?.id === contract_id);
+    }
+
     let total_granted = 0;
     let total_used = 0;
-    const processed_grants = response.data.map((grant) => {
+    const processed_grants = filteredData.map((grant) => {
       // Calculate total granted for this item
       const granted = grant.access_schedule?.schedule_items
         ? grant.access_schedule.schedule_items.reduce(
@@ -221,8 +228,8 @@ export async function fetchMetronomeCustomerBalance(
         total_granted, 
         total_used, 
         processed_grants, 
-        currency_name: response.data[0]?.access_schedule?.credit_type?.name || "USD",
-        currency_id: response.data[0]?.access_schedule?.credit_type?.id || "2714e483-4ff1-48e4-9e25-ac732e8f24f2",
+        currency_name: filteredData[0]?.access_schedule?.credit_type?.name || "USD",
+        currency_id: filteredData[0]?.access_schedule?.credit_type?.id || "2714e483-4ff1-48e4-9e25-ac732e8f24f2",
       },
     };
   } catch (error) {
@@ -272,6 +279,7 @@ export async function fetchMetronomeInvoiceBreakdown(
       result: {
         costs: costsData,
       },
+      rawData: data, // Include raw invoice breakdown data
     };
   } catch (error) {
     return {
@@ -408,6 +416,7 @@ export async function fetchCustomerSpendAlerts(
 
 export async function fetchCurrentSpendDraftInvoice(
   customer_id: string,
+  contract_id?: string,
   api_key?: string,
 ): Promise<ApiResponse<SpendResult>> {
   try {
@@ -416,6 +425,12 @@ export async function fetchCurrentSpendDraftInvoice(
       customer_id: customer_id,
       status: "DRAFT",
     });
+
+    // Filter invoices by contract_id if provided
+    let filteredInvoices = invoices.data;
+    if (contract_id) {
+      filteredInvoices = invoices.data.filter((invoice: any) => invoice.contract_id === contract_id);
+    }
 
     const total: Record<string, number> = {};
     const productTotals: Record<string, { 
@@ -426,9 +441,9 @@ export async function fetchCurrentSpendDraftInvoice(
       type: string;
     }> = {};
     const commitApplicationTotals: Record<string, { total: number; currency_name: string }> = {};
-    if (invoices?.data) {
+    if (filteredInvoices) {
       // Calculate total amount from all line items (before commits and credits)
-      invoices.data.forEach((inv) => {
+      filteredInvoices.forEach((inv) => {
         
         inv.line_items.forEach((item: any) => {
           const currency_name = item.credit_type.name;
@@ -483,7 +498,8 @@ export async function fetchCurrentSpendDraftInvoice(
         total, 
         productTotals, 
         commitApplicationTotals 
-      } 
+      },
+      rawData: filteredInvoices // Include raw invoice data
     };
   } catch (error) {
     return {
@@ -539,9 +555,67 @@ export async function fetchMetronomeCustomers(
     }
     return { status: "success", result: data };
   } catch (error) {
+    // Check if it's a 403 error (unauthorized/forbidden)
+    if (error instanceof Error && error.message.includes('403')) {
+      return {
+        status: "error",
+        message: "Invalid API key. Please check your Metronome API key in settings.",
+      };
+    }
+    
+    // Check if it's an HTTP error with status 403
+    if (error && typeof error === 'object' && 'status' in error && error.status === 403) {
+      return {
+        status: "error",
+        message: "Invalid API key. Please check your Metronome API key in settings.",
+      };
+    }
+    
     return {
       status: "error",
       message: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+export async function fetchCustomerDetails(
+  customer_id: string,
+  api_key?: string,
+): Promise<ApiResponse<any>> {
+  try {
+    const client = getMetronomeClient(api_key);
+    
+    // Call the Metronome SDK v1 customers retrieve function to get specific customer details
+    const response = await client.v1.customers.retrieve({
+      customer_id: customer_id,
+    });
+    
+    return {
+      status: "success",
+      result: response.data,
+    };
+  } catch (error) {
+    console.error("Error fetching customer details:", error);
+    
+    // Check if it's a 403 error (unauthorized/forbidden)
+    if (error instanceof Error && error.message.includes('403')) {
+      return {
+        status: "error",
+        message: "Invalid API key. Please check your Metronome API key in settings.",
+      };
+    }
+    
+    // Check if it's an HTTP error with status 403
+    if (error && typeof error === 'object' && 'status' in error && error.status === 403) {
+      return {
+        status: "error",
+        message: "Invalid API key. Please check your Metronome API key in settings.",
+      };
+    }
+    
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Unknown error occurred while fetching customer details",
     };
   }
 }
@@ -799,24 +873,30 @@ export async function rechargeBalance(
   recharge_amount: number,
   currency_id: string,
   recharge_product_id: string,
+  contract_details?: any, // Pass contract details to avoid listing contracts
+  threshold_amount?: number, // For auto recharge
   api_key?: string,
 ): Promise<ApiResponse<any>> {
   try {
-    
-    
     const client = getMetronomeClient(api_key);
     
-    // First, fetch the list of contracts for the customer
-    const contractsResponse = await client.v2.contracts.list({
-      customer_id: customer_id,
-    });
+    let contractWithStripe;
     
-    
-    // Find a contract with Stripe billing configuration
-    const contractWithStripe = contractsResponse.data.find((contract: any) => {
-      return contract.customer_billing_provider_configuration && 
-             contract.customer_billing_provider_configuration.billing_provider === 'stripe';
-    });
+    if (contract_details) {
+      // Use provided contract details
+      contractWithStripe = contract_details;
+    } else {
+      // Fallback to fetching contracts (backward compatibility)
+      const contractsResponse = await client.v2.contracts.list({
+        customer_id: customer_id,
+      });
+      
+      // Find a contract with Stripe billing configuration
+      contractWithStripe = contractsResponse.data.find((contract: any) => {
+        return contract.customer_billing_provider_configuration && 
+               contract.customer_billing_provider_configuration.billing_provider === 'stripe';
+      });
+    }
     
     if (!contractWithStripe) {
       return {
@@ -833,14 +913,14 @@ export async function rechargeBalance(
     oneYearFromNow.setMinutes(0, 0, 0); // Round to the hour
     
     // Create the recharge commit payload
-    const rechargePayload = {
+    const rechargePayload: any = {
       customer_id: customer_id,
       contract_id: contractWithStripe.id,
       add_commits: [
         {
           product_id: recharge_product_id,
           type: "PREPAID" as const, 
-          name: "Recharge",
+          name: threshold_amount ? "Auto Recharge" : "Recharge",
           access_schedule: {
             credit_type_id: currency_id,
             schedule_items: [
@@ -869,6 +949,37 @@ export async function rechargeBalance(
         }
       ]
     };
+
+    // Add auto recharge configuration if threshold is provided
+    if (threshold_amount) {
+      rechargePayload.add_prepaid_balance_threshold_configuration = {
+        is_enabled: true,
+        threshold_amount: threshold_amount,
+        recharge_to_amount: recharge_amount,
+        commit: {
+          product_id: recharge_product_id,
+          type: "PREPAID" as const, 
+          name: "Auto Recharge",
+          access_schedule: {
+            credit_type_id: currency_id,
+            schedule_items: [
+              {
+                amount: recharge_amount,
+                ending_before: oneYearFromNow.toISOString(),
+                starting_at: now.toISOString(),
+              }
+            ]
+          },
+          priority: 10,
+        },
+        payment_gate_config: {
+          payment_gate_type: "STRIPE" as const,
+          stripe_config: {
+            payment_type: "INVOICE" as const,
+          }
+        }
+      };
+    }
     
     // Edit the contract to add the commit
     const editResponse = await client.v2.contracts.edit(rechargePayload);
@@ -921,53 +1032,6 @@ export async function previewEvents(
   }
 }
 
-export async function fetchContractSubscriptions(
-  customer_id: string,
-  api_key?: string,
-): Promise<ApiResponse<any>> {
-  try {
-    const client = getMetronomeClient(api_key);
-    
-    // Call the Metronome SDK v2 contracts list function
-    const response = await client.v2.contracts.list({
-      customer_id: customer_id,
-    });
-    
-    const today = new Date(new Date().setHours(0, 0, 0, 0));
-    const activeContracts = response.data.filter((contract: any) => {
-      // If no ending_before date, contract is active
-      if (!contract.ending_before) {
-        return true;
-      }
-      // If ending_before exists, check if it's after today
-      const endingDate = new Date(contract.ending_before);
-      return endingDate > today;
-    });
-    
-    if (activeContracts.length === 0) {
-      return {
-        status: "success",
-        result: {
-          contract_id: null,
-          subscriptions: [],
-        },
-      };
-    }
-    return {
-      status: "success",
-      result: {
-        contract_id: activeContracts[0].id,
-        subscriptions: activeContracts[0].subscriptions || [],
-      },
-    };
-  } catch (error) {
-    console.error("Error fetching contract subscriptions:", error);
-    return {
-      status: "error",
-      message: error instanceof Error ? error.message : "Unknown error occurred while fetching contract subscriptions",
-    };
-  }
-}
 
 export async function updateSubscriptionQuantity(
   customer_id: string,
@@ -1016,6 +1080,187 @@ export async function updateSubscriptionQuantity(
     return {
       status: "error",
       message: error instanceof Error ? error.message : "Unknown error occurred while updating subscription quantity",
+    };
+  }
+}
+
+export async function listContracts(
+  customer_id: string,
+  api_key?: string,
+): Promise<ApiResponse<any[]>> {
+  try {
+    const client = getMetronomeClient(api_key);
+    
+    // Call the Metronome SDK v2 contracts list function
+    const response = await client.v2.contracts.list({
+      customer_id: customer_id,
+    });
+    
+    return {
+      status: "success",
+      result: response.data,
+    };
+  } catch (error) {
+    console.error("Error fetching contracts:", error);
+    
+    // Check if it's a 403 error (unauthorized/forbidden)
+    if (error instanceof Error && error.message.includes('403')) {
+      return {
+        status: "error",
+        message: "Invalid API key. Please check your Metronome API key in settings.",
+      };
+    }
+    
+    // Check if it's an HTTP error with status 403
+    if (error && typeof error === 'object' && 'status' in error && error.status === 403) {
+      return {
+        status: "error",
+        message: "Invalid API key. Please check your Metronome API key in settings.",
+      };
+    }
+    
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Unknown error occurred while fetching contracts",
+    };
+  }
+}
+
+export async function retrieveContractDetails(
+  customer_id: string,
+  contract_id: string,
+  api_key?: string,
+): Promise<ApiResponse<any>> {
+  try {
+    const client = getMetronomeClient(api_key);
+    
+    // Call the Metronome SDK v2 contracts retrieve function to get specific contract details
+    const response = await client.v2.contracts.retrieve({
+      customer_id: customer_id,
+      contract_id: contract_id,
+    });
+    
+    return {
+      status: "success",
+      result: response.data,
+    };
+  } catch (error) {
+    console.error("Error fetching contract details:", error);
+    
+    // Check if it's a 403 error (unauthorized/forbidden)
+    if (error instanceof Error && error.message.includes('403')) {
+      return {
+        status: "error",
+        message: "Invalid API key. Please check your Metronome API key in settings.",
+      };
+    }
+    
+    // Check if it's an HTTP error with status 403
+    if (error && typeof error === 'object' && 'status' in error && error.status === 403) {
+      return {
+        status: "error",
+        message: "Invalid API key. Please check your Metronome API key in settings.",
+      };
+    }
+    
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Unknown error occurred while fetching contract details",
+    };
+  }
+}
+
+export async function updateAutoRecharge(
+  customer_id: string,
+  contract_id: string,
+  is_enabled?: boolean,
+  threshold_amount?: number,
+  recharge_to_amount?: number,
+  api_key?: string,
+): Promise<ApiResponse<any>> {
+  try {
+    const client = getMetronomeClient(api_key);
+
+    // Create the update payload
+    const updatePayload: any = {
+      customer_id: customer_id,
+      contract_id: contract_id,
+      update_prepaid_balance_threshold_configuration: {}
+    };
+
+    // Only include fields that are provided
+    if (is_enabled !== undefined) {
+      updatePayload.update_prepaid_balance_threshold_configuration.is_enabled = is_enabled;
+    }
+    
+    if (threshold_amount !== undefined) {
+      updatePayload.update_prepaid_balance_threshold_configuration.threshold_amount = threshold_amount;
+    }
+    
+    if (recharge_to_amount !== undefined) {
+      updatePayload.update_prepaid_balance_threshold_configuration.recharge_to_amount = recharge_to_amount;
+    }
+
+    // Edit the contract to update the auto recharge configuration
+    const editResponse = await client.v2.contracts.edit(updatePayload);
+
+    return {
+      status: "success",
+      result: {
+        contract_id: contract_id,
+        update_data: editResponse.data,
+      },
+    };
+  } catch (error) {
+    console.error("Error updating auto recharge:", error);
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Unknown error occurred while updating auto recharge",
+    };
+  }
+}
+
+export async function updateThresholdBalance(
+  customer_id: string,
+  contract_id: string,
+  is_enabled?: boolean,
+  spend_threshold_amount?: number,
+  api_key?: string,
+): Promise<ApiResponse<any>> {
+  try {
+    const client = getMetronomeClient(api_key);
+
+    // Create the update payload
+    const updatePayload: any = {
+      customer_id: customer_id,
+      contract_id: contract_id,
+      update_spend_threshold_configuration: {}
+    };
+
+    // Only include fields that are provided
+    if (is_enabled !== undefined) {
+      updatePayload.update_spend_threshold_configuration.is_enabled = is_enabled;
+    }
+    
+    if (spend_threshold_amount !== undefined) {
+      updatePayload.update_spend_threshold_configuration.spend_threshold_amount = spend_threshold_amount;
+    }
+
+    // Edit the contract to update the spend threshold configuration
+    const editResponse = await client.v2.contracts.edit(updatePayload);
+
+    return {
+      status: "success",
+      result: {
+        contract_id: contract_id,
+        update_data: editResponse.data,
+      },
+    };
+  } catch (error) {
+    console.error("Error updating spend threshold:", error);
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Unknown error occurred while updating spend threshold",
     };
   }
 }

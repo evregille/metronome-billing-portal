@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Settings, Eye, EyeOff, Check, X, Building2, CreditCard } from "lucide-react";
+import { Settings, Eye, EyeOff, Check, X, Building2, CreditCard, Info } from "lucide-react";
 
 const METRONOME_API_KEY_STORAGE_KEY = "metronome_api_key";
 const BUSINESS_NAME_STORAGE_KEY = "business_name";
@@ -117,6 +117,9 @@ export function SettingsModal({ onApiKeyChange, onBusinessNameChange, onRecharge
     onApiKeyChange?.("");
     onBusinessNameChange?.(DEFAULT_BUSINESS_NAME);
     onRechargeProductIdChange?.("");
+    
+    // Dispatch custom event to notify customer context to reload customers
+    window.dispatchEvent(new CustomEvent('apiKeyChanged'));
   };
 
   const getValidationIcon = () => {
@@ -157,9 +160,6 @@ export function SettingsModal({ onApiKeyChange, onBusinessNameChange, onRecharge
             <Settings className="w-5 h-5" />
             <span>Settings</span>
           </DialogTitle>
-          <DialogDescription>
-            Configure your Metronome API key and customize your dashboard branding.
-          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-6">
@@ -177,26 +177,30 @@ export function SettingsModal({ onApiKeyChange, onBusinessNameChange, onRecharge
               placeholder={`Enter your business name (default: ${DEFAULT_BUSINESS_NAME})`}
             />
             <p className="text-xs text-gray-500">
-              This will be displayed in the dashboard header and branding.
+              This will be displayed in the dashboard header.
             </p>
           </div>
 
-          {/* Recharge Product ID Section */}
+          {/* Recharge/Threshold Product ID Section */}
           <div className="space-y-2">
             <Label htmlFor="recharge-product-id" className="flex items-center space-x-2">
               <CreditCard className="w-4 h-4" />
-              <span>Recharge Product ID (optional)</span>
+              <span>Commit Product ID</span>
+              <div className="relative group">
+                <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help" />
+                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                  Required for balance recharge and spend threshold
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                </div>
+              </div>
             </Label>
             <Input
               id="recharge-product-id"
               type="text"
               value={rechargeProductId}
               onChange={(e) => setRechargeProductId(e.target.value)}
-              placeholder="Metronome Commit product ID for recharges "
+              placeholder="Metronome Commit product ID"
             />
-            <p className="text-xs text-gray-500">
-              This product ID will be used when creating recharge commits.
-            </p>
           </div>
 
           {/* API Key Section */}

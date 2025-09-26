@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useMetronome } from "@/hooks/use-metronome-config";
@@ -8,19 +8,18 @@ import { Package, Loader2, RefreshCw } from "lucide-react";
 
 export function ManagedSubscription() {
   const { 
-    contractSubscriptions, 
+    config,
     loadingStates, 
-    fetchContractSubscriptions,
     updateSubscriptionQuantity
   } = useMetronome();
   const [updatingQuantities, setUpdatingQuantities] = useState<Set<string>>(new Set());
   const [pendingQuantities, setPendingQuantities] = useState<Record<string, number>>({});
 
-  useEffect(() => {
-    fetchContractSubscriptions();
-  }, [fetchContractSubscriptions]);
+  // Get subscriptions from contract details in config
+  const subscriptions = config.contract_details?.subscriptions || [];
+  const contractId = config.contract_details?.id;
 
-  console.log("contractData", contractSubscriptions);
+  console.log("contractData", config.contract_details);
 
   const handleQuantityChange = (subscriptionId: string, newQuantity: number) => {
     if (newQuantity < 0) return;
@@ -31,13 +30,13 @@ export function ManagedSubscription() {
   };
 
   const handleUpdateQuantity = async (subscriptionId: string, newQuantity: number) => {
-    if (!contractSubscriptions?.contract_id) return;
+    if (!contractId) return;
     
     setUpdatingQuantities(prev => new Set(prev).add(subscriptionId));
     
     try {
       await updateSubscriptionQuantity(
-        contractSubscriptions.contract_id,
+        contractId,
         subscriptionId,
         newQuantity
       );
@@ -91,7 +90,7 @@ export function ManagedSubscription() {
     });
   };
 
-  if (loadingStates.contractSubscriptions) {
+  if (loadingStates.contractDetails) {
     return (
       <div className="glass-card card-hover rounded-2xl p-6">
         <div className="flex items-center space-x-3 mb-6">
@@ -113,7 +112,7 @@ export function ManagedSubscription() {
     );
   }
 
-  if (!contractSubscriptions || contractSubscriptions.subscriptions.length === 0) {
+  if (!config.contract_details || subscriptions.length === 0) {
     return (
       <div className="glass-card card-hover rounded-2xl p-6">
         <div className="flex items-center space-x-3 mb-6">
@@ -133,7 +132,7 @@ export function ManagedSubscription() {
           <p className="text-gray-600 mb-4">
             No subscriptions are currently active for this contract.
           </p>
-          <Button onClick={fetchContractSubscriptions} variant="outline">
+          <Button onClick={() => window.location.reload()} variant="outline">
             Retry
           </Button>
         </div>
@@ -152,8 +151,8 @@ export function ManagedSubscription() {
           <p className="text-sm text-gray-600">Manage your subscription quantities</p>
         </div>
       </div>
-      <div className={`grid gap-6 ${contractSubscriptions.subscriptions.length === 1 ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
-          {contractSubscriptions.subscriptions.map((subscription) => {
+      <div className={`grid gap-6 ${subscriptions.length === 1 ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
+          {subscriptions.map((subscription: any) => {
             const currentQuantity = getCurrentQuantity(subscription.quantity_schedule);
             const pendingQuantity = pendingQuantities[subscription.id];
             const displayQuantity = pendingQuantity !== undefined ? pendingQuantity : currentQuantity;
@@ -249,7 +248,7 @@ export function ManagedSubscription() {
                 {subscription.quantity_schedule.length > 1 && (
                   <div className="text-xs text-gray-500 dark:text-gray-400">
                     <p className="font-medium mb-1">Quantity History:</p>
-                    {subscription.quantity_schedule.map((schedule, index) => (
+                    {subscription.quantity_schedule.map((schedule: any, index: number) => (
                       <div key={index} className="ml-2">
                         {schedule.quantity} units from {formatDate(schedule.starting_at)}
                       </div>

@@ -9,9 +9,12 @@ import { Usage } from "@/components/dashboard/usage";
 import { Invoices } from "@/components/dashboard/invoices";
 import { CostBreakdownChart } from "@/components/charts/cost-breakdown-chart";
 import { CustomerSelector } from "@/components/customer-selector";
+import { ContractSelector } from "@/components/contract-selector";
 import { SettingsModal } from "@/components/settings-modal";
 import { ManagedSubscription } from "@/components/managed-subscription";
-import { RefreshCw } from "lucide-react";
+import { PaymentMethod } from "@/components/payment-method";
+import { DeveloperConsole } from "@/components/developer-console";
+import { RefreshCw, CreditCard, BarChart3, Settings, Receipt, Code } from "lucide-react";
 
 const BUSINESS_NAME_STORAGE_KEY = "business_name";
 
@@ -27,7 +30,9 @@ function RefreshButton() {
     fetchAlerts, 
     fetchInvoices, 
     fetchRawUsageData,
-    fetchContractSubscriptions,
+    fetchCustomerDetails,
+    fetchContractDetails,
+    config,
     loadingStates 
   } = useMetronome();
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -35,16 +40,28 @@ function RefreshButton() {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      // Fetch all data in parallel for better performance
-      await Promise.all([
+      // Prepare array of fetch functions with force refresh for cached data
+      const fetchFunctions = [
         fetchBalance(),
-        fetchCosts(),
+        fetchCosts(true), // Force refresh to bypass cache
         fetchCurrentSpend(),
         fetchAlerts(),
         fetchInvoices(),
-        fetchRawUsageData(),
-        fetchContractSubscriptions(),
-      ]);
+        fetchRawUsageData(true), // Force refresh to bypass cache
+      ];
+
+      // Always add fetchCustomerDetails if customer_id is available
+      if (config.customer_id) {
+        fetchFunctions.push(fetchCustomerDetails());
+      }
+
+      // Only add fetchContractDetails if contract_id is available
+      if (config.contract_id) {
+        fetchFunctions.push(fetchContractDetails());
+      }
+
+      // Fetch all data in parallel for better performance
+      await Promise.all(fetchFunctions);
     } catch (error) {
       console.error("Error refreshing data:", error);
     } finally {
@@ -96,16 +113,13 @@ function DashboardHeader({
           </div>
           <div className="flex items-center space-x-3">
             <CustomerSelector />
+            <ContractSelector />
             <RefreshButton />
             <SettingsModal 
               onApiKeyChange={onApiKeyChange}
               onBusinessNameChange={onBusinessNameChange}
               onRechargeProductIdChange={onRechargeProductIdChange}
             />
-            <div className="px-4 py-2 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-              <span className="w-2 h-2 bg-green-500 rounded-full inline-block mr-2"></span>
-              Connected
-            </div>
             <div className="text-sm text-gray-600">
               <a 
                 href="https://github.com/evregille/metronome-billing-portal" 
@@ -126,12 +140,68 @@ function DashboardHeader({
   );
 }
 
+// Component to handle customer and contract selection and fetch their details
+function CustomerAndContractHandler({ children }: { children: React.ReactNode }) {
+  const { selectedCustomer, selectedContract } = useCustomer();
+  const { fetchCustomerDetails, fetchContractDetails } = useMetronome();
+
+  // Fetch customer details when customer changes
+  useEffect(() => {
+    if (selectedCustomer) {
+      fetchCustomerDetails();
+    }
+  }, [selectedCustomer, fetchCustomerDetails]);
+
+  // Fetch contract details when contract changes
+  useEffect(() => {
+    if (selectedContract) {
+      fetchContractDetails();
+    }
+  }, [selectedContract, fetchContractDetails]);
+
+  return <>{children}</>;
+}
+
+// Component to handle the conditional developer console layout
+function DeveloperConsoleLayout() {
+  // Show only DeveloperConsole component
+  return <DeveloperConsole />;
+}
+
+// Tab component for organizing dashboard sections
+function TabButton({ 
+  label, 
+  icon: Icon, 
+  isActive, 
+  onClick 
+}: { 
+  label: string; 
+  icon: any; 
+  isActive: boolean; 
+  onClick: () => void; 
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center space-x-2 px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
+        isActive
+          ? "bg-blue-100 text-blue-700 border border-blue-200"
+          : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+      }`}
+    >
+      <Icon className="w-4 h-4" />
+      <span>{label}</span>
+    </button>
+  );
+}
+
 function DashboardContent() {
-  const { selectedCustomer, loading, } = useCustomer();
+  const { selectedCustomer, selectedContract, loading, } = useCustomer();
   const [isLoading, setIsLoading] = useState(true);
   const [apiKey, setApiKey] = useState<string | undefined>(undefined);
   const [businessName, setBusinessName] = useState(DEFAULT_BUSINESS_NAME);
   const [rechargeProductId, setRechargeProductId] = useState<string>("");
+  const [activeTab, setActiveTab] = useState("billing");
 
   useEffect(() => {
     // Load settings from localStorage on mount
@@ -197,15 +267,12 @@ function DashboardContent() {
               </div>
               <div className="flex items-center space-x-3">
                 <CustomerSelector />
+                <ContractSelector />
                 <SettingsModal 
                   onApiKeyChange={handleApiKeyChange}
                   onBusinessNameChange={handleBusinessNameChange}
                   onRechargeProductIdChange={handleRechargeProductIdChange}
                 />
-                <div className="px-4 py-2 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-                  <span className="w-2 h-2 bg-green-500 rounded-full inline-block mr-2"></span>
-                  Connected
-                </div>
                 <div className="text-sm text-gray-600">
                   <a 
                     href="https://github.com/evregille/metronome-billing-portal" 
@@ -230,37 +297,98 @@ function DashboardContent() {
         {selectedCustomer ? (
           <MetronomeProvider 
             customerId={selectedCustomer.metronome_customer_id} 
+            contractId={selectedContract?.id}
             apiKey={apiKey}
             rechargeProductId={rechargeProductId}
           >
-            <DashboardHeader 
-              businessName={businessName}
-              onApiKeyChange={handleApiKeyChange}
-              onBusinessNameChange={handleBusinessNameChange}
-              onRechargeProductIdChange={handleRechargeProductIdChange}
-            />
-            <div className="container mx-auto px-6 py-8">
-              <div className="space-y-8">
-                {/* Top Row */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <Balance />
-                  <Spend />
+            <CustomerAndContractHandler>
+              <DashboardHeader 
+                businessName={businessName}
+                onApiKeyChange={handleApiKeyChange}
+                onBusinessNameChange={handleBusinessNameChange}
+                onRechargeProductIdChange={handleRechargeProductIdChange}
+              />
+              <div className="container mx-auto px-6 py-8">
+                {/* Tab Navigation */}
+                <div className="mb-8">
+                  <div className="flex flex-wrap gap-2">
+                    <TabButton
+                      label="Billing"
+                      icon={CreditCard}
+                      isActive={activeTab === "billing"}
+                      onClick={() => setActiveTab("billing")}
+                    />
+                    <TabButton
+                      label="Usage"
+                      icon={BarChart3}
+                      isActive={activeTab === "usage"}
+                      onClick={() => setActiveTab("usage")}
+                    />
+                    <TabButton
+                      label="Subscriptions"
+                      icon={Settings}
+                      isActive={activeTab === "subscriptions"}
+                      onClick={() => setActiveTab("subscriptions")}
+                    />
+                    <TabButton
+                      label="Payments"
+                      icon={Receipt}
+                      isActive={activeTab === "payments"}
+                      onClick={() => setActiveTab("payments")}
+                    />
+                    <TabButton
+                      label="Developer"
+                      icon={Code}
+                      isActive={activeTab === "developer"}
+                      onClick={() => setActiveTab("developer")}
+                    />
+                  </div>
                 </div>
 
-                {/* Managed Subscriptions */}
-                <ManagedSubscription />
+                {/* Tab Content */}
+                <div className="space-y-8">
+                  {activeTab === "billing" && (
+                    <>
+                      {/* Billing Tab - Account Balance, Spend, and Cost Breakdown */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <Balance />
+                        <Spend />
+                      </div>
+                      <CostBreakdownChart />
+                    </>
+                  )}
 
-                {/* Cost Breakdown */}
-                <CostBreakdownChart />
+                  {activeTab === "usage" && (
+                    <>
+                      {/* Usage Tab - Usage Analytics */}
+                      <Usage />
+                    </>
+                  )}
 
-                {/* Usage Analytics */}
-                <Usage />
+                  {activeTab === "subscriptions" && (
+                    <>
+                      {/* Subscriptions Tab */}
+                      <ManagedSubscription />
+                    </>
+                  )}
 
-                {/* Invoices */}
-                <Invoices />
+                  {activeTab === "payments" && (
+                    <>
+                      {/* Payments Tab - Invoices and Payment Method */}
+                      <Invoices />
+                      <PaymentMethod />
+                    </>
+                  )}
 
+                  {activeTab === "developer" && (
+                    <>
+                      {/* Developer Tab */}
+                      <DeveloperConsoleLayout />
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
+            </CustomerAndContractHandler>
           </MetronomeProvider>
         ) : loading ? (
           <div className="flex items-center justify-center py-20">

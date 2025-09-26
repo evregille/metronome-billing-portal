@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { fetchMetronomeCustomers } from '@/actions/metronome';
+import { fetchMetronomeCustomers, listContracts } from '@/actions/metronome';
 
 interface Customer {
   id: string;
@@ -10,26 +10,51 @@ interface Customer {
   description?: string;
 }
 
+interface Contract {
+  id: string;
+  name?: string;
+  customer_id: string;
+  starting_at?: string;
+  ending_before?: string;
+}
+
 interface CustomerContextType {
   selectedCustomer: Customer | null;
   setSelectedCustomer: (customer: Customer) => void;
   customers: Customer[];
   loading: boolean;
   refreshCustomers: () => Promise<void>;
+  contracts: Contract[];
+  selectedContract: Contract | null;
+  setSelectedContract: (contract: Contract) => void;
+  loadingContracts: boolean;
+  fetchContracts: (customerId: string) => Promise<void>;
+  onContractSelected?: (contract: Contract) => void;
 }
 
 const CustomerContext = createContext<CustomerContextType | undefined>(undefined);
 
-export function CustomerProvider({ children }: { children: React.ReactNode }) {
+export function CustomerProvider({ 
+  children, 
+  onContractSelected 
+}: { 
+  children: React.ReactNode;
+  onContractSelected?: (contract: Contract) => void;
+}) {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [contracts, setContracts] = useState<Contract[]>([]);
+  const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
+  const [loadingContracts, setLoadingContracts] = useState(false);
 
   const loadCustomers = useCallback(async () => {
     try {
       setLoading(true);
       // Clear selected customer immediately when loading new customers
       setSelectedCustomer(null);
+      setContracts([]);
+      setSelectedContract(null);
       
       // Get API key from localStorage (can be null/undefined)
       const apiKey = localStorage.getItem("metronome_api_key");
@@ -57,6 +82,12 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
         console.error('Failed to load customers from Metronome:', response.message);
         setCustomers([]);
         setSelectedCustomer(null);
+        
+        // Show user-friendly error message for API key issues
+        if (response.message?.includes('Invalid API key')) {
+          // You could dispatch a toast notification here or set an error state
+          console.warn('API key validation failed - user should check their settings');
+        }
       }
     } catch (error) {
       console.error('Error loading customers from Metronome:', error);
@@ -64,6 +95,54 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
       setSelectedCustomer(null);
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const fetchContracts = useCallback(async (customerId: string) => {
+    try {
+      setLoadingContracts(true);
+      setContracts([]);
+      setSelectedContract(null);
+      
+      // Get API key from localStorage (can be null/undefined)
+      const apiKey = localStorage.getItem("metronome_api_key");
+      
+      const response = await listContracts(customerId, apiKey || undefined);
+      
+      if (response.status === "success") {
+        // Transform Metronome contract data to our Contract interface
+        const metronomeContracts: Contract[] = response.result.map((contract: any) => ({
+          id: contract.id,
+          name: contract.name,
+          customer_id: contract.customer_id,
+          starting_at: contract.starting_at,
+          ending_before: contract.ending_before,
+        }));
+        
+        setContracts(metronomeContracts);
+        
+        // Set default contract (first one from Metronome)
+        if (metronomeContracts.length > 0) {
+          setSelectedContract(metronomeContracts[0]);
+        } else {
+          setSelectedContract(null);
+        }
+      } else {
+        console.error('Failed to load contracts from Metronome:', response.message);
+        setContracts([]);
+        setSelectedContract(null);
+        
+        // Show user-friendly error message for API key issues
+        if (response.message?.includes('Invalid API key')) {
+          console.warn('API key validation failed while fetching contracts - user should check their settings');
+        }
+      }
+    } catch (error) {
+      console.error('Error loading contracts from Metronome:', error);
+      setContracts([]);
+      setSelectedContract(null);
+    } finally {
+      setLoadingContracts(false);
     }
   }, []);
 
@@ -99,7 +178,17 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
 
   const handleSetSelectedCustomer = (customer: Customer) => {
     setSelectedCustomer(customer);
+    // Fetch contracts for the selected customer
+    fetchContracts(customer.metronome_customer_id);
     // No localStorage - only use dropdown selection
+  };
+
+  const handleSetSelectedContract = (contract: Contract) => {
+    setSelectedContract(contract);
+    // Call the callback to notify parent components
+    if (onContractSelected) {
+      onContractSelected(contract);
+    }
   };
 
   return (
@@ -109,7 +198,13 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
         setSelectedCustomer: handleSetSelectedCustomer,
         customers,
         loading,
-        refreshCustomers: loadCustomers
+        refreshCustomers: loadCustomers,
+        contracts,
+        selectedContract,
+        setSelectedContract: handleSetSelectedContract,
+        loadingContracts,
+        fetchContracts,
+        onContractSelected
       }}
     >
       {children}
