@@ -29,6 +29,17 @@ import {
   fetchCustomerDetails as fetchCustomerDetailsAction,
 } from "@/actions/metronome";
 
+// Utility function to detect current theme
+function getCurrentTheme(): string {
+  if (typeof window === 'undefined') return 'dark'; // Default to dark mode
+  
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme) return savedTheme;
+  
+  // Default to dark mode instead of light mode
+  return 'dark';
+}
+
 // Types based on the backend API
 interface MetronomeConfig {
   customer_id: string;
@@ -167,7 +178,7 @@ interface MetronomeContextType {
   fetchCosts: (forceRefresh?: boolean) => Promise<void>;
   fetchCurrentSpend: () => Promise<void>;
   fetchAlerts: () => Promise<void>;
-  fetchInvoices: () => Promise<void>;
+  fetchInvoices: (forceRefresh?: boolean) => Promise<void>;
   fetchRawUsageData: (forceRefresh?: boolean) => Promise<void>;
   fetchCustomerDetails: () => Promise<void>;
   fetchContractDetails: () => Promise<void>;
@@ -175,9 +186,9 @@ interface MetronomeContextType {
   rechargeBalance: (rechargeAmount: number, thresholdAmount?: number) => Promise<void>;
   updateAutoRecharge: (isEnabled?: boolean, thresholdAmount?: number, rechargeToAmount?: number) => Promise<void>;
   updateThresholdBalance: (isEnabled?: boolean, spendThresholdAmount?: number) => Promise<void>;
-  fetchInvoiceEmbeddable: () => Promise<void>;
-  fetchCommitsEmbeddable: () => Promise<void>;
-  fetchUsageEmbeddable: () => Promise<void>;
+  fetchInvoiceEmbeddable: (forceRefresh?: boolean) => Promise<void>;
+  fetchCommitsEmbeddable: (forceRefresh?: boolean) => Promise<void>;
+  fetchUsageEmbeddable: (forceRefresh?: boolean) => Promise<void>;
   createSpendAlert: (threshold: number) => Promise<void>;
   createBalanceAlert: (threshold: number) => Promise<void>;
   deleteAlert: (alertId: string) => Promise<void>;
@@ -220,6 +231,10 @@ export function MetronomeProvider({
   // Cache flags to track if data has been fetched for current customer/contract
   const [costsCacheKey, setCostsCacheKey] = useState<string>("");
   const [usageCacheKey, setUsageCacheKey] = useState<string>("");
+  const [invoicesCacheKey, setInvoicesCacheKey] = useState<string>("");
+  const [invoiceEmbeddableCacheKey, setInvoiceEmbeddableCacheKey] = useState<string>("");
+  const [commitsEmbeddableCacheKey, setCommitsEmbeddableCacheKey] = useState<string>("");
+  const [usageEmbeddableCacheKey, setUsageEmbeddableCacheKey] = useState<string>("");
 
   // Clear cache when customer or contract changes
   useEffect(() => {
@@ -235,7 +250,63 @@ export function MetronomeProvider({
       setRawUsageData(null);
       setUsageCacheKey("");
     }
-  }, [config.customer_id, config.contract_id, costsCacheKey, usageCacheKey]);
+    
+    if (invoicesCacheKey && invoicesCacheKey !== currentCacheKey) {
+      setInvoices(null);
+      setInvoicesCacheKey("");
+    }
+    
+    if (invoiceEmbeddableCacheKey && invoiceEmbeddableCacheKey !== currentCacheKey) {
+      setInvoiceEmbeddableUrl(null);
+      setInvoiceEmbeddableCacheKey("");
+    }
+    
+    if (commitsEmbeddableCacheKey && commitsEmbeddableCacheKey !== currentCacheKey) {
+      setCommitsEmbeddableUrl(null);
+      setCommitsEmbeddableCacheKey("");
+    }
+    
+    if (usageEmbeddableCacheKey && usageEmbeddableCacheKey !== currentCacheKey) {
+      setUsageEmbeddableUrl(null);
+      setUsageEmbeddableCacheKey("");
+    }
+  }, [config.customer_id, config.contract_id, costsCacheKey, usageCacheKey, invoicesCacheKey, invoiceEmbeddableCacheKey, commitsEmbeddableCacheKey, usageEmbeddableCacheKey]);
+
+  // Clear embeddable URLs when theme changes
+  useEffect(() => {
+    const handleThemeChange = () => {
+      // Clear all embeddable URLs when theme changes
+      setInvoiceEmbeddableUrl(null);
+      setCommitsEmbeddableUrl(null);
+      setUsageEmbeddableUrl(null);
+      
+      // Clear cache keys to force refetch
+      setInvoiceEmbeddableCacheKey("");
+      setCommitsEmbeddableCacheKey("");
+      setUsageEmbeddableCacheKey("");
+    };
+
+    // Listen for theme changes in localStorage
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'theme') {
+        handleThemeChange();
+      }
+    };
+
+    // Listen for custom theme change events
+    const handleCustomThemeChange = () => {
+      handleThemeChange();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('themeChanged', handleCustomThemeChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('themeChanged', handleCustomThemeChange);
+    };
+  }, []);
+
   const [invoiceEmbeddableUrl, setInvoiceEmbeddableUrl] = useState<string | null>(null);
   const [commitsEmbeddableUrl, setCommitsEmbeddableUrl] = useState<string | null>(null);
   const [usageEmbeddableUrl, setUsageEmbeddableUrl] = useState<string | null>(null);
@@ -397,8 +468,16 @@ export function MetronomeProvider({
     }
   }, [config.customer_id, config.contract_id, apiKey]);
 
-  const fetchInvoices = useCallback(async () => {
+  const fetchInvoices = useCallback(async (forceRefresh = false) => {
     if (!config.customer_id || !config.contract_id) return;
+
+    // Create cache key for current customer/contract combination
+    const currentCacheKey = `${config.customer_id}-${config.contract_id}`;
+    
+    // If we already have data for this customer/contract and not forcing refresh, don't fetch again
+    if (!forceRefresh && invoicesCacheKey === currentCacheKey && invoices) {
+      return;
+    }
 
     setLoadingStates(prev => ({ ...prev, invoices: true }));
     try {
@@ -409,18 +488,29 @@ export function MetronomeProvider({
 
       if (response.status === "success") {
         setInvoices(response.result.invoices);
+        setInvoicesCacheKey(currentCacheKey); // Update cache key
       } else {
         console.error("Failed to fetch invoices:", response.message);
+        setInvoicesCacheKey(""); // Clear cache key on error
       }
     } catch (error) {
       console.error("Error fetching invoices:", error);
+      setInvoicesCacheKey(""); // Clear cache key on error
     } finally {
       setLoadingStates(prev => ({ ...prev, invoices: false }));
     }
-  }, [config.customer_id, config.contract_id, apiKey]);
+  }, [config.customer_id, config.contract_id, apiKey, invoicesCacheKey, invoices]);
 
-  const fetchInvoiceEmbeddable = useCallback(async () => {
+  const fetchInvoiceEmbeddable = useCallback(async (forceRefresh = false) => {
     if (!config.customer_id || !config.contract_id) return;
+
+    // Create cache key for current customer/contract combination
+    const currentCacheKey = `${config.customer_id}-${config.contract_id}`;
+    
+    // If we already have data for this customer/contract and not forcing refresh, don't fetch again
+    if (!forceRefresh && invoiceEmbeddableCacheKey === currentCacheKey && invoiceEmbeddableUrl) {
+      return;
+    }
 
     setLoadingStates(prev => ({ ...prev, invoiceEmbeddable: true }));
     try {
@@ -428,47 +518,75 @@ export function MetronomeProvider({
         config.customer_id,
         "invoices",
         apiKey, // This can be undefined, and backend will use env var
+        getCurrentTheme(), // Pass current theme for dark mode support
       );
 
       if (response.status === "success") {
         setInvoiceEmbeddableUrl(response.result || null);
+        setInvoiceEmbeddableCacheKey(currentCacheKey); // Update cache key
       } else {
         console.error("Failed to fetch invoice embeddable:", response.message);
+        setInvoiceEmbeddableCacheKey(""); // Clear cache key on error
       }
     } catch (error) {
       console.error("Error fetching invoice embeddable:", error);
+      setInvoiceEmbeddableCacheKey(""); // Clear cache key on error
     } finally {
       setLoadingStates(prev => ({ ...prev, invoiceEmbeddable: false }));
     }
-  }, [config.customer_id, config.contract_id, apiKey]);
+  }, [config.customer_id, config.contract_id, apiKey, invoiceEmbeddableCacheKey, invoiceEmbeddableUrl]);
 
-  const fetchCommitsEmbeddable = useCallback(async () => {
+  const fetchCommitsEmbeddable = useCallback(async (forceRefresh = false) => {
     if (!config.customer_id || !config.contract_id) return;
+
+    // Create cache key for current customer/contract combination
+    const currentCacheKey = `${config.customer_id}-${config.contract_id}`;
+    
+    // If we already have data for this customer/contract and not forcing refresh, don't fetch again
+    if (!forceRefresh && commitsEmbeddableCacheKey === currentCacheKey && commitsEmbeddableUrl) {
+      return;
+    }
 
     setLoadingStates(prev => ({ ...prev, commitsEmbeddable: true }));
     try {
+      const currentTheme = getCurrentTheme();
+      console.log("Current theme for commits embeddable:", currentTheme);
+      
       const response = await createMetronomeEmbeddableLink(
         config.customer_id,
         "commits_and_credits",
         apiKey, // This can be undefined, and backend will use env var
+        currentTheme, // Pass current theme for dark mode support
       );
 
       if (response.status === "success") {
         setCommitsEmbeddableUrl(response.result || null);
+        setCommitsEmbeddableCacheKey(currentCacheKey); // Update cache key
       } else {
         console.error("Failed to fetch commits embeddable:", response.message);
+        setCommitsEmbeddableCacheKey(""); // Clear cache key on error
       }
     } catch (error) {
       console.error("Error fetching commits embeddable:", error);
+      setCommitsEmbeddableCacheKey(""); // Clear cache key on error
     } finally {
       setLoadingStates(prev => ({ ...prev, commitsEmbeddable: false }));
     }
-  }, [config.customer_id, config.contract_id, apiKey]);
+  }, [config.customer_id, config.contract_id, apiKey, commitsEmbeddableCacheKey, commitsEmbeddableUrl]);
 
-  const fetchUsageEmbeddable = useCallback(async () => {
+  const fetchUsageEmbeddable = useCallback(async (forceRefresh = false) => {
     console.log("fetchUsageEmbeddable called with customer_id:", config.customer_id, "contract_id:", config.contract_id);
     if (!config.customer_id || !config.contract_id) {
       console.log("No customer_id or contract_id, returning early");
+      return;
+    }
+
+    // Create cache key for current customer/contract combination
+    const currentCacheKey = `${config.customer_id}-${config.contract_id}`;
+    
+    // If we already have data for this customer/contract and not forcing refresh, don't fetch again
+    if (!forceRefresh && usageEmbeddableCacheKey === currentCacheKey && usageEmbeddableUrl) {
+      console.log("Usage embeddable already cached, skipping fetch");
       return;
     }
 
@@ -479,6 +597,7 @@ export function MetronomeProvider({
         config.customer_id,
         "usage",
         apiKey, // This can be undefined, and backend will use env var
+        getCurrentTheme(), // Pass current theme for dark mode support
       );
 
       console.log("createMetronomeEmbeddableLink response:", response);
@@ -486,15 +605,18 @@ export function MetronomeProvider({
       if (response.status === "success") {
         console.log("Setting usageEmbeddableUrl to:", response.result);
         setUsageEmbeddableUrl(response.result || null);
+        setUsageEmbeddableCacheKey(currentCacheKey); // Update cache key
       } else {
         console.error("Failed to fetch usage embeddable:", response.message);
+        setUsageEmbeddableCacheKey(""); // Clear cache key on error
       }
     } catch (error) {
       console.error("Error fetching usage embeddable:", error);
+      setUsageEmbeddableCacheKey(""); // Clear cache key on error
     } finally {
       setLoadingStates(prev => ({ ...prev, usageEmbeddable: false }));
     }
-  }, [config.customer_id, config.contract_id, apiKey]);
+  }, [config.customer_id, config.contract_id, apiKey, usageEmbeddableCacheKey, usageEmbeddableUrl]);
 
   const fetchRawUsageData = useCallback(async (forceRefresh = false) => {
     if (!config.customer_id || !config.contract_id) return;

@@ -50,9 +50,9 @@ export function ContractSelector() {
 
   if (loadingContracts) {
     return (
-      <div className="flex items-center space-x-2 px-3 py-2 bg-white/60 backdrop-blur-sm border border-white/30 rounded-lg">
+      <div className="flex items-center space-x-2 px-3 py-2 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-white/30 dark:border-gray-700/30 rounded-lg">
         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-        <span className="text-sm text-gray-600">Loading contracts...</span>
+        <span className="text-sm text-gray-600 dark:text-gray-400">Loading contracts...</span>
       </div>
     );
   }
@@ -67,15 +67,15 @@ export function ContractSelector() {
       
       {/* Dropdown */}
       <div 
-        className="fixed w-80 bg-white/95 backdrop-blur-sm border border-white/30 rounded-xl shadow-xl z-[9999] overflow-hidden"
+        className="fixed w-80 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border border-white/30 dark:border-gray-700/30 rounded-xl shadow-xl z-[9999] overflow-hidden"
         style={{
           top: `${dropdownPosition.top}px`,
           right: `${dropdownPosition.right}px`,
         }}
       >
-        <div className="p-3 border-b border-gray-200">
-          <h3 className="text-sm font-semibold text-gray-900">Select Contract</h3>
-          <p className="text-xs text-gray-600">Choose a contract for {selectedCustomer.name}</p>
+        <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Select Contract</h3>
+          <p className="text-xs text-gray-600 dark:text-gray-400">Choose a contract for {selectedCustomer.name}</p>
         </div>
         
         <div className="max-h-64 overflow-y-auto">
@@ -92,8 +92,8 @@ export function ContractSelector() {
                   setSelectedContract(contract);
                   setIsOpen(false);
                 }}
-                className={`w-full flex items-center justify-between p-3 hover:bg-blue-50 transition-colors duration-200 ${
-                  selectedContract?.id === contract.id ? 'bg-blue-50' : ''
+                className={`w-full flex items-center justify-between p-3 hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors duration-200 ${
+                  selectedContract?.id === contract.id ? 'bg-blue-50 dark:bg-gray-700' : ''
                 }`}
               >
                 <div className="flex-1 text-left">
@@ -102,7 +102,7 @@ export function ContractSelector() {
                       <FileText className="w-4 h-4 text-white" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                         {contract.name || contract.id}
                       </p>
                       <p className="text-xs text-gray-600">
@@ -128,10 +128,10 @@ export function ContractSelector() {
       <button
         ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center space-x-2 px-3 py-2 bg-white/60 backdrop-blur-sm border border-white/30 rounded-lg hover:bg-white/80 transition-all duration-200 min-w-[200px]"
+        className="flex items-center space-x-2 px-3 py-2 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-white/30 dark:border-gray-700/30 rounded-lg hover:bg-white/80 dark:hover:bg-gray-800/80 transition-all duration-200 min-w-[200px]"
       >
         <FileText className="w-4 h-4 text-green-600" />
-        <span className="text-sm font-medium text-gray-900 truncate">
+        <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
           {selectedContract ? (selectedContract.name || selectedContract.id) : 'Select Contract'}
         </span>
         <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />

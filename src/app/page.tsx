@@ -14,12 +14,50 @@ import { SettingsModal } from "@/components/settings-modal";
 import { ManagedSubscription } from "@/components/managed-subscription";
 import { PaymentMethod } from "@/components/payment-method";
 import { DeveloperConsole } from "@/components/developer-console";
-import { RefreshCw, CreditCard, BarChart3, Settings, Receipt, Code } from "lucide-react";
+import { RefreshCw, CreditCard, BarChart3, Settings, Receipt, Code, Moon, Sun } from "lucide-react";
 
 const BUSINESS_NAME_STORAGE_KEY = "business_name";
 
 // Get default business name from environment variable
 const DEFAULT_BUSINESS_NAME = process.env.NEXT_PUBLIC_DEFAULT_BUSINESS_NAME || "AcmeCorp";
+
+// Dark Mode Toggle Component
+function DarkModeToggle() {
+  const [isDark, setIsDark] = useState(true); // Default to dark mode
+
+  useEffect(() => {
+    // Check for saved theme preference or default to dark mode
+    const savedTheme = localStorage.getItem('theme');
+    const shouldBeDark = savedTheme === 'dark' || (!savedTheme && true); // Default to dark mode
+    
+    setIsDark(shouldBeDark);
+    document.documentElement.classList.toggle('dark', shouldBeDark);
+  }, []);
+
+  const toggleDarkMode = () => {
+    const newIsDark = !isDark;
+    setIsDark(newIsDark);
+    document.documentElement.classList.toggle('dark', newIsDark);
+    localStorage.setItem('theme', newIsDark ? 'dark' : 'light');
+    
+    // Dispatch custom event to notify components of theme change
+    window.dispatchEvent(new CustomEvent('themeChanged'));
+  };
+
+  return (
+    <button
+      onClick={toggleDarkMode}
+      className="flex items-center justify-center w-10 h-10 bg-white/80 hover:bg-white dark:bg-gray-800/80 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 transition-all duration-200"
+      title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+    >
+      {isDark ? (
+        <Sun className="w-4 h-4" />
+      ) : (
+        <Moon className="w-4 h-4" />
+      )}
+    </button>
+  );
+}
 
 // Refresh Button Component
 function RefreshButton() {
@@ -46,7 +84,7 @@ function RefreshButton() {
         fetchCosts(true), // Force refresh to bypass cache
         fetchCurrentSpend(),
         fetchAlerts(),
-        fetchInvoices(),
+        fetchInvoices(true), // Force refresh to bypass cache
         fetchRawUsageData(true), // Force refresh to bypass cache
       ];
 
@@ -97,7 +135,7 @@ function DashboardHeader({
   onRechargeProductIdChange: (id: string) => void;
 }) {
   return (
-    <header className="glass-card border-b border-white/20">
+    <header className="glass-card border-b border-white/20 dark:border-gray-800/20">
       <div className="container mx-auto px-6 py-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -105,27 +143,28 @@ function DashboardHeader({
               <span className="text-white font-bold text-xl">{businessName.charAt(0)}</span>
             </div>
             <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
                 {businessName}
               </h1>
-              <p className="text-sm text-gray-600 font-medium">Billing Dashboard</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Billing Dashboard</p>
             </div>
           </div>
           <div className="flex items-center space-x-3">
             <CustomerSelector />
             <ContractSelector />
             <RefreshButton />
+            <DarkModeToggle />
             <SettingsModal 
               onApiKeyChange={onApiKeyChange}
               onBusinessNameChange={onBusinessNameChange}
               onRechargeProductIdChange={onRechargeProductIdChange}
             />
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-gray-600 dark:text-gray-400">
               <a 
                 href="https://github.com/evregille/metronome-billing-portal" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="hover:text-gray-800 transition-colors duration-200 flex items-center space-x-1"
+                className="hover:text-gray-800 dark:hover:text-gray-200 transition-colors duration-200 flex items-center space-x-1"
               >
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
@@ -185,8 +224,8 @@ function TabButton({
       onClick={onClick}
       className={`flex items-center space-x-2 px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
         isActive
-          ? "bg-blue-100 text-blue-700 border border-blue-200"
-          : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+          ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700"
+          : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800/50"
       }`}
     >
       <Icon className="w-4 h-4" />
@@ -235,9 +274,9 @@ function DashboardContent() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen gradient-bg flex items-center justify-center">
+      <div className="min-h-screen gradient-bg dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-6 animate-pulse">
+          <div className="w-16 h-16 bg-white/20 dark:bg-gray-800/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-6 animate-pulse">
             <span className="text-white font-bold text-2xl">{businessName.charAt(0)}</span>
           </div>
           <h2 className="text-2xl font-semibold text-white mb-3">Loading...</h2>
@@ -248,10 +287,10 @@ function DashboardContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Header for when no customer is selected */}
       {!selectedCustomer && (
-        <header className="glass-card border-b border-white/20">
+        <header className="glass-card border-b border-white/20 dark:border-gray-800/20">
           <div className="container mx-auto px-6 py-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
@@ -259,10 +298,10 @@ function DashboardContent() {
                   <span className="text-white font-bold text-xl">{businessName.charAt(0)}</span>
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                  <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
                     {businessName}
                   </h1>
-                  <p className="text-sm text-gray-600 font-medium">Billing Dashboard</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Billing Dashboard</p>
                 </div>
               </div>
               <div className="flex items-center space-x-3">
@@ -273,12 +312,12 @@ function DashboardContent() {
                   onBusinessNameChange={handleBusinessNameChange}
                   onRechargeProductIdChange={handleRechargeProductIdChange}
                 />
-                <div className="text-sm text-gray-600">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
                   <a 
                     href="https://github.com/evregille/metronome-billing-portal" 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="hover:text-gray-800 transition-colors duration-200 flex items-center space-x-1"
+                    className="hover:text-gray-800 dark:hover:text-gray-200 transition-colors duration-200 flex items-center space-x-1"
                   >
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>

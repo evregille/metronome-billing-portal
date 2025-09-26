@@ -180,8 +180,8 @@ export function Spend() {
               <DollarSign className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Spend</h3>
-              <p className="text-sm text-gray-600">This billing period</p>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Spend</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">This billing period</p>
             </div>
           </div>
         </div>
@@ -203,30 +203,30 @@ export function Spend() {
             <DollarSign className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Spend</h3>
-            <p className="text-sm text-gray-600">This billing period</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Spend</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">This billing period</p>
           </div>
         </div>
         <div className="text-right">
           {Object.keys(totalSpendByCurrency).length > 0 ? (
             <div className="space-y-1">
               {Object.entries(totalSpendByCurrency).map(([category, data]) => (
-                <div key={category} className="text-2xl font-bold text-gray-900">
+                <div key={category} className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   {formatCurrency(data.total, data.currency_name)}
                 </div>
               ))}
             </div>
           ) : (
-            <div className="text-3xl font-bold text-gray-900">
+            <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">
               {formatCurrency(totalSpend)}
             </div>
           )}
-          <div className="text-sm text-gray-600 mb-3">{productCount} products</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">{productCount} products</div>
           
           {/* Spend Threshold Button */}
           <div className="flex justify-end">
             <Button 
-              className="bg-transparent hover:bg-transparent border border-blue-600 text-blue-600 px-4 py-1.5 rounded-lg font-medium transition-all duration-200 text-sm"
+              className="bg-transparent hover:bg-transparent dark:bg-transparent dark:hover:bg-transparent border border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 px-4 py-1.5 rounded-lg font-medium transition-all duration-200 text-sm"
               onClick={() => setShowSpendThresholdModal(true)}
             >
               <Target className="w-3 h-3 mr-1.5" />
@@ -241,7 +241,7 @@ export function Spend() {
         <div className="space-y-4 mb-6">
           <div className="flex items-center space-x-2 mb-4">
             <Package className="w-4 h-4 text-green-600" />
-            <h4 className="text-sm font-semibold text-gray-900">Balance drawdown by Product</h4>
+            <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Balance drawdown by Product</h4>
           </div>
 
           {/* Single Stacked Bar */}
@@ -267,19 +267,19 @@ export function Spend() {
                 {products.map((item, index) => {
                   const globalIndex = balanceDrawdownData.findIndex(d => d.name === item.name);
                   return (
-                    <div key={index} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                    <div key={index} className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                       <div className="flex items-center space-x-3">
                         <div 
                           className="w-4 h-4 rounded-full" 
                           style={{ backgroundColor: colors[globalIndex % colors.length] }}
                         ></div>
                         <div>
-                          <span className="text-sm font-medium text-gray-900">{item.name}</span>
+                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{item.name}</span>
                         </div>
                       </div>
                       <div className="flex items-center space-x-4">
-                        <span className="text-sm font-semibold text-gray-900">{item.formattedValue}</span>
-                        <span className="text-sm text-gray-600 min-w-[3rem] text-right">
+                        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{item.formattedValue}</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400 min-w-[3rem] text-right">
                           {item.percentage.toFixed(1)}%
                         </span>
                       </div>
@@ -297,7 +297,7 @@ export function Spend() {
         <div className="space-y-4 mb-6">
           <div className="flex items-center space-x-2 mb-4">
             <Package className="w-4 h-4 text-green-600" />
-            <h4 className="text-sm font-semibold text-gray-900">Spend by Product (in-arrears overages)</h4>
+            <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Spend by Product (in-arrears overages)</h4>
           </div>
 
           {/* Single Stacked Bar */}
@@ -323,19 +323,19 @@ export function Spend() {
                 {products.map((item, index) => {
                   const globalIndex = overagesData.findIndex(d => d.name === item.name);
                   return (
-                    <div key={index} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                    <div key={index} className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                       <div className="flex items-center space-x-3">
                         <div 
                           className="w-4 h-4 rounded-full" 
                           style={{ backgroundColor: colors[globalIndex % colors.length] }}
                         ></div>
                         <div>
-                          <span className="text-sm font-medium text-gray-900">{item.name}</span>
+                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{item.name}</span>
                         </div>
                       </div>
                       <div className="flex items-center space-x-4">
-                        <span className="text-sm font-semibold text-gray-900">{item.formattedValue}</span>
-                        <span className="text-sm text-gray-600 min-w-[3rem] text-right">
+                        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{item.formattedValue}</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400 min-w-[3rem] text-right">
                           {item.percentage.toFixed(1)}%
                         </span>
                       </div>
@@ -351,11 +351,11 @@ export function Spend() {
 
 
         {/* Spend Alerts Configuration - Updated to match Balance style */}
-        <div className="border-t border-gray-200 pt-6">
+        <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
-              <Bell className="w-4 h-4 text-gray-600" />
-              <h4 className="text-sm font-semibold text-gray-900">Budget</h4>
+              <Bell className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Budget</h4>
             </div>
             {alerts?.spendAlert && (
               <div className="flex items-center space-x-2">
@@ -376,18 +376,18 @@ export function Spend() {
           
           {alerts?.spendAlert ? (
             // Show existing alert
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <h5 className="font-medium text-gray-900">Budget</h5>
-                  <p className="text-sm text-gray-600">We will notify you if your spending reaches {formatCurrency(alerts.spendAlert.alert.threshold || 0)}</p>
+                  <h5 className="font-medium text-gray-900 dark:text-gray-100">Budget</h5>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">We will notify you if your spending reaches {formatCurrency(alerts.spendAlert.alert.threshold || 0, Object.entries(totalSpendByCurrency)[0]?.[1]?.currency_name || 'USD (Cents)')}</p>
                 </div>
               </div>
               
               {isEditingAlert && (
                 <div className="space-y-3 pt-3 border-t border-blue-200">
                   <div className="flex items-center space-x-3">
-                    <Label htmlFor="spend-threshold" className="text-sm text-gray-600">
+                    <Label htmlFor="spend-threshold" className="text-sm text-gray-600 dark:text-gray-400">
                       Alert when spending reaches:
                     </Label>
                     <div className="flex items-center space-x-2">
@@ -403,7 +403,10 @@ export function Spend() {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Button size="sm" onClick={handleCreateAlert}>
+                    <Button 
+                      className="bg-transparent hover:bg-transparent dark:bg-transparent dark:hover:bg-transparent border border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 px-4 py-1.5 rounded-lg font-medium transition-all duration-200 text-sm"
+                      onClick={handleCreateAlert}
+                    >
                       Save Changes
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => setIsEditingAlert(false)}>
@@ -415,12 +418,21 @@ export function Spend() {
             </div>
           ) : (
             // Show create alert form
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <div className="mb-3">
+            <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
                 <div>
-                  <h5 className="font-medium text-gray-900">Control how much you spend</h5>
-                  <p className="text-sm text-gray-600">Receive a notification when your spending reaches a threshold</p>
+                  <h5 className="font-medium text-gray-900 dark:text-gray-100">Control how much you spend</h5>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Receive a notification when your spending reaches a threshold</p>
                 </div>
+                {!isEditingAlert && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditingAlert(true)}
+                  >
+                    Create
+                  </Button>
+                )}
               </div>
               
               {isEditingAlert && (
@@ -442,7 +454,10 @@ export function Spend() {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Button size="sm" onClick={handleCreateAlert}>
+                    <Button 
+                      className="bg-transparent hover:bg-transparent dark:bg-transparent dark:hover:bg-transparent border border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 px-4 py-1.5 rounded-lg font-medium transition-all duration-200 text-sm"
+                      onClick={handleCreateAlert}
+                    >
                       Create Alert
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => setIsEditingAlert(false)}>
@@ -466,3 +481,4 @@ export function Spend() {
     </div>
   );
 }
+

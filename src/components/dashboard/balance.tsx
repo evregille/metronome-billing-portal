@@ -161,8 +161,8 @@ export function Balance() {
               <Wallet className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Account Balance</h3>
-              <p className="text-sm text-gray-600">Available funds</p>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Account Balance</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Available funds</p>
             </div>
           </div>
         </div>
@@ -185,30 +185,30 @@ export function Balance() {
             <Wallet className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Account Balance</h3>
-            <p className="text-sm text-gray-600">Available funds</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Account Balance</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Available funds</p>
           </div>
         </div>
         <div className="text-right">
-          <div className="text-3xl font-bold text-gray-900">
+          <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">
             {balance 
               ? formatCurrency(balance.total_granted - balance.total_used, balance.currency_name)
               : formatCurrency(0, "USD")
             }
           </div>
-          <div className="text-sm text-gray-600 mb-3">remaining</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">remaining</div>
 
           {/* Recharge Buttons - Always visible */}
           <div className="flex space-x-2">
             <Button 
-              className="bg-transparent hover:bg-transparent border border-blue-600 text-blue-600 px-4 py-1.5 rounded-lg font-medium transition-all duration-200 text-sm"
+              className="bg-transparent hover:bg-transparent dark:bg-transparent dark:hover:bg-transparent border border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 px-4 py-1.5 rounded-lg font-medium transition-all duration-200 text-sm"
               onClick={() => setShowRechargeModal(true)}
             >
               <Wallet className="w-3 h-3 mr-1.5" />
               Recharge
             </Button>
             <Button 
-              className="bg-transparent hover:bg-transparent border border-blue-600 text-blue-600 px-4 py-1.5 rounded-lg font-medium transition-all duration-200 text-sm"
+              className="bg-transparent hover:bg-transparent dark:bg-transparent dark:hover:bg-transparent border border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 px-4 py-1.5 rounded-lg font-medium transition-all duration-200 text-sm"
               onClick={() => setShowAutoRechargeModal(true)}
             >
               <Wallet className="w-3 h-3 mr-1.5" />
@@ -223,14 +223,14 @@ export function Balance() {
         // Show embeddable iframe
         <div className="flex-1">
           {loadingStates.commitsEmbeddable ? (
-            <div className="flex items-center justify-center h-96 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-center h-96 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <div className="text-center">
                 <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-3" />
-                <p className="text-gray-600">Loading embeddable dashboard...</p>
+                <p className="text-gray-600 dark:text-gray-400">Loading embeddable dashboard...</p>
               </div>
             </div>
           ) : commitsEmbeddableUrl ? (
-            <div className="overflow-hidden rounded-lg h-96">
+            <div className="overflow-hidden rounded-lg h-96 bg-white dark:bg-gray-800">
               <iframe
                 src={commitsEmbeddableUrl}
                 className="w-full h-full"
@@ -239,10 +239,10 @@ export function Balance() {
               />
             </div>
           ) : (
-            <div className="flex items-center justify-center h-96 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-center h-96 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <div className="text-center">
-                <ExternalLink className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-600">Failed to load embeddable dashboard</p>
+                <ExternalLink className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
+                <p className="text-gray-600 dark:text-gray-400">Failed to load embeddable dashboard</p>
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -263,7 +263,7 @@ export function Balance() {
             {balance.total_granted > 0 && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">Overall Usage</span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Overall Usage</span>
                   <span className={`text-sm font-semibold ${getUsageColor()}`}>
                     {calculateUsagePercentage().toFixed(1)}%
                   </span>
@@ -276,7 +276,7 @@ export function Balance() {
                   ></div>
                 </div>
                 
-                <div className="flex justify-between text-xs text-gray-500">
+                <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
                   <span>{formatCurrency(balance.total_used, balance.currency_name)} used</span>
                   <span>{formatCurrency(balance.total_granted, balance.currency_name)} granted</span>
                 </div>
@@ -289,7 +289,7 @@ export function Balance() {
                 <div className="w-5 h-5 bg-gray-600 rounded flex items-center justify-center">
                   <Package className="w-3 h-3 text-white" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900">Commits Breakdown</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Commits Breakdown</h3>
               </div>
               <div className="space-y-4">
                 {balance.processed_grants.map((grant) => {
@@ -297,7 +297,7 @@ export function Balance() {
                   const isFullyUsed = usagePercentage >= 100;
                   
                   return (
-                    <div key={grant.id} className="bg-white border border-gray-200 rounded-lg p-4">
+                    <div key={grant.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                       {/* Header */}
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center space-x-3">
@@ -305,7 +305,7 @@ export function Balance() {
                             <CheckCircle className="w-4 h-4 text-white" />
                           </div>
                           <div>
-                            <p className="font-semibold text-gray-900">{grant.product_name}</p>
+                            <p className="font-semibold text-gray-900 dark:text-gray-100">{grant.product_name}</p>
                             <p className="text-sm text-gray-500">Type: {grant.type.toUpperCase()}</p>
                           </div>
                         </div>
@@ -321,7 +321,7 @@ export function Balance() {
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-medium text-gray-700">Usage</span>
-                            <span className="text-sm font-semibold text-gray-900">
+                            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                               {usagePercentage.toFixed(1)}%
                             </span>
                           </div>
@@ -340,11 +340,11 @@ export function Balance() {
                       <div className="flex justify-between mt-3 pt-3 border-t border-gray-100">
                         <div className="text-center">
                           <p className="text-sm text-gray-500">Granted</p>
-                          <p className="font-semibold text-gray-900">{formatCurrency(grant.granted, balance.currency_name)}</p>
+                          <p className="font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(grant.granted, balance.currency_name)}</p>
                         </div>
                         <div className="text-center">
                           <p className="text-sm text-gray-500">Used</p>
-                          <p className="font-semibold text-gray-900">{formatCurrency(grant.used, balance.currency_name)}</p>
+                          <p className="font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(grant.used, balance.currency_name)}</p>
                         </div>
                         <div className="text-center">
                           <p className="text-sm text-gray-500">Remaining</p>
@@ -363,8 +363,8 @@ export function Balance() {
             <div className="border-t border-gray-200 pt-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-2">
-                  <Bell className="w-4 h-4 text-gray-600" />
-                  <h4 className="text-sm font-semibold text-gray-900">Balance Notifications</h4>
+                  <Bell className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Balance Notifications</h4>
                 </div>
                 {alerts?.balanceAlert && (
                   <div className="flex items-center space-x-2">
@@ -385,21 +385,21 @@ export function Balance() {
               
               {alerts?.balanceAlert ? (
                 // Show existing alert
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-3">
                     <div>
-                      <h5 className="font-medium text-gray-900">Low Balance Notification</h5>
-                      <p className="text-sm text-gray-600">We will notify if your balance reaches below {formatCurrency(alerts.balanceAlert.alert.threshold || 0, balance.currency_name)}</p>
+                      <h5 className="font-medium text-gray-900 dark:text-gray-100">Low Balance Notification</h5>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">We will notify if your balance reaches below {formatCurrency(alerts.balanceAlert.alert.threshold || 0, balance.currency_name)}</p>
                     </div>
                   </div>
                 </div>
               ) : (
                 // Show create alert form
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-3">
                     <div>
-                      <h5 className="font-medium text-gray-900">Track your balance</h5>
-                      <p className="text-sm text-gray-600">Receive a notification when your balance reaches below a threshold</p>
+                      <h5 className="font-medium text-gray-900 dark:text-gray-100">Track your balance</h5>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Receive a notification when your balance reaches below a threshold</p>
                     </div>
                     <Button
                       variant="outline"
@@ -413,7 +413,7 @@ export function Balance() {
                   {isEditingAlert && (
                     <div className="space-y-3 pt-3 border-t border-gray-200">
                       <div className="flex items-center space-x-3">
-                        <Label htmlFor="balance-threshold" className="text-sm text-gray-600">
+                        <Label htmlFor="balance-threshold" className="text-sm text-gray-600 dark:text-gray-400">
                           We will notify you when your balance reaches:
                         </Label>
                         <div className="flex items-center space-x-2">
@@ -429,7 +429,10 @@ export function Balance() {
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Button size="sm" onClick={handleCreateAlert}>
+                        <Button 
+                          className="bg-transparent hover:bg-transparent dark:bg-transparent dark:hover:bg-transparent border border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 px-4 py-1.5 rounded-lg font-medium transition-all duration-200 text-sm"
+                          onClick={handleCreateAlert}
+                        >
                           Create Alert
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => setIsEditingAlert(false)}>
@@ -443,25 +446,26 @@ export function Balance() {
             </div>
           </div>
         ) : (
-          <div className="flex items-center justify-center h-96 bg-gray-50 rounded-lg">
+          <div className="flex items-center justify-center h-96 bg-gray-50 dark:bg-gray-800 rounded-lg">
             <div className="text-center">
-              <Wallet className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-600">No balance data available</p>
+              <Wallet className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
+              <p className="text-gray-600 dark:text-gray-400">No balance data available</p>
             </div>
           </div>
         )
       )}
 
       {/* Show Embeddable Toggle - Moved to bottom */}
-      <div className="border-t border-gray-200 pt-6 mt-6">
+      <div className="border-t border-gray-200 dark:border-gray-600 pt-6 mt-6">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-3">
             <Switch
               id="embeddable-toggle"
               checked={showEmbeddable}
               onCheckedChange={setShowEmbeddable}
+              className="data-[state=checked]:bg-blue-600 data-[state=unchecked]:bg-gray-400 dark:data-[state=unchecked]:bg-gray-600"
             />
-            <Label htmlFor="embeddable-toggle" className="text-sm">
+            <Label htmlFor="embeddable-toggle" className="text-sm font-medium text-gray-700 dark:text-gray-200">
               Show Embeddable
             </Label>
           </div>

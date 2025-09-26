@@ -98,14 +98,14 @@ export function ManagedSubscription() {
             <Package className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Managed Subscriptions</h3>
-            <p className="text-sm text-gray-600">Loading subscription data...</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Managed Subscriptions</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Loading subscription data...</p>
           </div>
         </div>
         <div className="flex items-center justify-center py-8">
           <div className="text-center">
             <Loader2 className="w-8 h-8 animate-spin text-purple-500 mx-auto mb-3" />
-            <p className="text-gray-600">Loading subscription data...</p>
+            <p className="text-gray-600 dark:text-gray-400">Loading subscription data...</p>
           </div>
         </div>
       </div>
@@ -120,16 +120,16 @@ export function ManagedSubscription() {
             <Package className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Managed Subscriptions</h3>
-            <p className="text-sm text-gray-600">No active subscriptions found</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Managed Subscriptions</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">No active subscriptions found</p>
           </div>
         </div>
         <div className="text-center py-8">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Package className="w-8 h-8 text-gray-400" />
+          <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Package className="w-8 h-8 text-gray-400 dark:text-gray-500" />
           </div>
-          <h4 className="text-lg font-medium text-gray-900 mb-2">No Active Subscriptions</h4>
-          <p className="text-gray-600 mb-4">
+          <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No Active Subscriptions</h4>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
             No subscriptions are currently active for this contract.
           </p>
           <Button onClick={() => window.location.reload()} variant="outline">
@@ -147,8 +147,8 @@ export function ManagedSubscription() {
           <Package className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">Managed Subscriptions</h3>
-          <p className="text-sm text-gray-600">Manage your subscription quantities</p>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Managed Subscriptions</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Manage your subscription quantities</p>
         </div>
       </div>
       <div className={`grid gap-6 ${subscriptions.length === 1 ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>

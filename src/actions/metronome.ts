@@ -5,41 +5,6 @@ import Metronome from "@metronome/sdk/index.mjs";
 const CUSTOM_SPEND_THRESHOLD_ALERT_NAME = "CUSTOM_SPEND_THRESHOLD_ALERT";
 const CUSTOM_BALANCE_ALERT_NAME = "CUSTOM_BALANCE_ALERT";
 
-const DARK_THEME_COLORS = {
-  // Main background colors
-  Gray_dark: "#0a0a0a", // Very dark background
-  Gray_medium: "#1a1a1a", // Medium dark for cards/sections
-  Gray_light: "#2a2a2a", // Lighter gray for borders
-  Gray_extralight: "#3a3a3a", // Even lighter for hover states
-
-  // Text colors
-  White: "#ffffff", // Primary text color
-  Text_primary: "#ffffff", // Primary text
-  Text_secondary: "#a1a1aa", // Secondary text (muted)
-
-  // Brand/accent colors
-  Primary_medium: "#3b82f6", // Blue primary
-  Primary_light: "#60a5fa", // Lighter blue
-  Primary_green: "#10b981", // Success/positive green
-  Primary_red: "#ef4444", // Error/negative red
-
-  // Chart colors (important for data visualization)
-  Chart_1: "#3b82f6", // Blue
-  Chart_2: "#10b981", // Green
-  Chart_3: "#f59e0b", // Amber
-  Chart_4: "#ef4444", // Red
-  Chart_5: "#8b5cf6", // Purple
-  Chart_6: "#06b6d4", // Cyan
-
-  // Background variants
-  Background_primary: "#0a0a0a",
-  Background_secondary: "#1a1a1a",
-  Background_tertiary: "#2a2a2a",
-
-  // Border colors
-  Border_primary: "#3a3a3a",
-  Border_secondary: "#4a4a4a",
-};
 
 // Types
 type DashboardType = "invoices" | "usage" | "commits_and_credits";
@@ -137,19 +102,26 @@ export async function createMetronomeEmbeddableLink(
 ) {
   try {
     const client = getMetronomeClient(api_key);
-
+    
     const color_overrides =
       resolvedTheme === "dark"
         ? [
-            { name: "Gray_dark" as const, value: DARK_THEME_COLORS.Gray_dark },
-            { name: "Gray_medium" as const, value: DARK_THEME_COLORS.Gray_medium },
-            { name: "Gray_light" as const, value: DARK_THEME_COLORS.Gray_light },
-            { name: "Gray_extralight" as const, value: DARK_THEME_COLORS.Gray_extralight },
-            { name: "White" as const, value: DARK_THEME_COLORS.White },
-            { name: "Primary_medium" as const, value: DARK_THEME_COLORS.Primary_medium },
-            { name: "Primary_light" as const, value: DARK_THEME_COLORS.Primary_light },
-            { name: "Primary_green" as const, value: DARK_THEME_COLORS.Primary_green },
-            { name: "Primary_red" as const, value: DARK_THEME_COLORS.Primary_red },
+            // Core colors mapped to your design system
+            { name: "Gray_dark" as const, value: "#ffffff" }, // Text title color (white)
+            { name: "Gray_medium" as const, value: "#d1d5db" }, // Sub title font color (slightly greyer)
+            { name: "Gray_light" as const, value: "#ffffff" }, // Same as Gray_dark (white)
+            { name: "Gray_extralight" as const, value: "#1f2937" }, // Blue used on buttons
+            { name: "White" as const, value: "#1f2937" }, // Card background color (like Spend card)
+            
+            // Brand colors
+            { name: "Primary_medium" as const, value: "#3b82f6" },
+            { name: "Primary_light" as const, value: "#60a5fa" },
+            { name: "Primary_green" as const, value: "#10b981" },
+            { name: "Primary_red" as const, value: "#ef4444" },
+            
+            // Progress bar color to match cost breakdown chart
+            { name: "Progress_bar" as const, value: "#f59e0b" }, // Orange/Amber
+            { name: "Progress_bar_background" as const, value: "#1f2937" }, // Card background color (like Spend card)
           ]
         : undefined;
 
@@ -158,8 +130,10 @@ export async function createMetronomeEmbeddableLink(
       dashboard: type,
       color_overrides,
     });
+
+    const embeddableUrl = response.data.url;
     
-    return { status: "success", result: response.data.url };
+    return { status: "success", result: embeddableUrl };
   } catch (error) {
     console.error("Error creating embeddable link:", error);
     return {

@@ -50,15 +50,15 @@ export function Usage() {
               <BarChart3 className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Usage Analytics</h3>
-              <p className="text-sm text-gray-600">Detailed usage metrics and analytics</p>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Usage Analytics</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Detailed usage metrics and analytics</p>
             </div>
           </div>
         </div>
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
             <Loader2 className="w-8 h-8 animate-spin text-green-500 mx-auto mb-3" />
-            <p className="text-gray-600">Loading customer data...</p>
+            <p className="text-gray-600 dark:text-gray-400">Loading customer data...</p>
           </div>
         </div>
       </div>
@@ -73,8 +73,8 @@ export function Usage() {
             <BarChart3 className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Usage Analytics</h3>
-            <p className="text-sm text-gray-600">Detailed usage metrics and analytics</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Usage Analytics</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Detailed usage metrics and analytics</p>
           </div>
         </div>
         <div className="flex items-center space-x-3">
@@ -102,7 +102,7 @@ export function Usage() {
               checked={showEmbeddable}
               onCheckedChange={setShowEmbeddable}
             />
-            <Label htmlFor="usage-embeddable-toggle" className="text-sm">
+            <Label htmlFor="usage-embeddable-toggle" className="text-sm text-gray-700 dark:text-gray-200">
               Show Embeddable
             </Label>
           </div>
@@ -114,10 +114,10 @@ export function Usage() {
         {!showEmbeddable && (
           <div>
             {loadingStates.rawUsageData ? (
-              <div className="flex items-center justify-center h-96 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-center h-96 bg-gray-50 dark:bg-gray-800 rounded-lg">
                 <div className="text-center">
                   <Loader2 className="w-8 h-8 animate-spin text-green-500 mx-auto mb-3" />
-                  <p className="text-gray-600">Loading usage data...</p>
+                  <p className="text-gray-600 dark:text-gray-400">Loading usage data...</p>
                 </div>
               </div>
             ) : rawUsageData && rawUsageData.usage_data.length > 0 ? (
@@ -138,11 +138,11 @@ export function Usage() {
                 })}
               </div>
             ) : (
-              <div className="flex items-center justify-center h-96 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-center h-96 bg-gray-50 dark:bg-gray-800 rounded-lg">
                 <div className="text-center">
-                  <TrendingUp className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                  <p className="text-gray-600">No usage data available</p>
-                  <p className="text-sm text-gray-500 mt-1">
+                  <TrendingUp className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
+                  <p className="text-gray-600 dark:text-gray-400">No usage data available</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
                     {rawUsageData ? `Found ${rawUsageData.total_metrics} metrics but no usage data` : 'No billable metrics found'}
                   </p>
                 </div>
@@ -153,30 +153,28 @@ export function Usage() {
 
         {/* Embeddable Dashboard Section */}
         {showEmbeddable && (
-          <div className="border-2 border-blue-200 bg-blue-50 p-4 rounded-lg">
-        
-
+          <div className="h-96">
             {loadingStates.usageEmbeddable ? (
-              <div className="flex items-center justify-center h-96 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-center h-full bg-gray-50 dark:bg-gray-800 rounded-lg">
                 <div className="text-center">
                   <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-3" />
-                  <p className="text-gray-600">Loading usage dashboard...</p>
+                  <p className="text-gray-600 dark:text-gray-400">Loading usage dashboard...</p>
                 </div>
               </div>
             ) : usageEmbeddableUrl ? (
-              <div className="overflow-hidden rounded-lg border border-gray-200">
+              <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 h-full">
                 <iframe
                   src={usageEmbeddableUrl}
-                  className="w-full h-96"
+                  className="w-full h-full"
                   title="Metronome Usage Dashboard"
                   sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
                 />
               </div>
             ) : (
-              <div className="flex items-center justify-center h-96 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-center h-full bg-gray-50 dark:bg-gray-800 rounded-lg">
                 <div className="text-center">
-                  <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                  <p className="text-gray-600">Failed to load usage dashboard</p>
+                  <BarChart3 className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
+                  <p className="text-gray-600 dark:text-gray-400">Failed to load usage dashboard</p>
                   <Button 
                     variant="outline" 
                     size="sm" 

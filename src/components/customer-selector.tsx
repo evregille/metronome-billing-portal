@@ -45,9 +45,9 @@ export function CustomerSelector() {
 
   if (loading) {
     return (
-      <div className="flex items-center space-x-2 px-3 py-2 bg-white/60 backdrop-blur-sm border border-white/30 rounded-lg">
+      <div className="flex items-center space-x-2 px-3 py-2 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-white/30 dark:border-gray-700/30 rounded-lg">
         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-        <span className="text-sm text-gray-600">Loading...</span>
+        <span className="text-sm text-gray-600 dark:text-gray-400">Loading...</span>
       </div>
     );
   }
@@ -62,15 +62,15 @@ export function CustomerSelector() {
       
       {/* Dropdown */}
       <div 
-        className="fixed w-80 bg-white/95 backdrop-blur-sm border border-white/30 rounded-xl shadow-xl z-[9999] overflow-hidden"
+        className="fixed w-80 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border border-white/30 dark:border-gray-700/30 rounded-xl shadow-xl z-[9999] overflow-hidden"
         style={{
           top: `${dropdownPosition.top}px`,
           right: `${dropdownPosition.right}px`,
         }}
       >
-        <div className="p-3 border-b border-gray-200">
-          <h3 className="text-sm font-semibold text-gray-900">Select Customer</h3>
-          <p className="text-xs text-gray-600">Choose a customer to view their billing data</p>
+        <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Select Customer</h3>
+          <p className="text-xs text-gray-600 dark:text-gray-400">Choose a customer to view their billing data</p>
         </div>
         
         <div className="max-h-64 overflow-y-auto">
@@ -81,8 +81,8 @@ export function CustomerSelector() {
                 setSelectedCustomer(customer);
                 setIsOpen(false);
               }}
-              className={`w-full flex items-center justify-between p-3 hover:bg-blue-50 transition-colors duration-200 ${
-                selectedCustomer?.id === customer.id ? 'bg-blue-50' : ''
+              className={`w-full flex items-center justify-between p-3 hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors duration-200 ${
+                selectedCustomer?.id === customer.id ? 'bg-blue-50 dark:bg-gray-700' : ''
               }`}
             >
               <div className="flex-1 text-left">
@@ -93,8 +93,8 @@ export function CustomerSelector() {
                     </span>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{customer.name}</p>
-                    <p className="text-xs text-gray-600">{customer.description}</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{customer.name}</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">{customer.description}</p>
                   </div>
                 </div>
               </div>
@@ -114,10 +114,10 @@ export function CustomerSelector() {
       <button
         ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center space-x-2 px-3 py-2 bg-white/60 backdrop-blur-sm border border-white/30 rounded-lg hover:bg-white/80 transition-all duration-200 min-w-[200px]"
+        className="flex items-center space-x-2 px-3 py-2 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-white/30 dark:border-gray-700/30 rounded-lg hover:bg-white/80 dark:hover:bg-gray-800/80 transition-all duration-200 min-w-[200px]"
       >
         <Users className="w-4 h-4 text-blue-600" />
-        <span className="text-sm font-medium text-gray-900 truncate">
+        <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
           {selectedCustomer?.name || 'Select Customer'}
         </span>
         <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />

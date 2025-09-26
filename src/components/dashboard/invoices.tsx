@@ -85,15 +85,15 @@ export function Invoices() {
               <FileText className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Invoices</h3>
-              <p className="text-sm text-gray-600">View and manage your invoices</p>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Invoices</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">View and manage your invoices</p>
             </div>
           </div>
         </div>
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
             <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-3" />
-            <p className="text-gray-600">Loading customer data...</p>
+            <p className="text-gray-600 dark:text-gray-400">Loading customer data...</p>
           </div>
         </div>
       </div>
@@ -108,8 +108,8 @@ console.log("sortedInvoices", sortedInvoices);
             <FileText className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Invoices</h3>
-            <p className="text-sm text-gray-600">View and manage your invoices</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Invoices</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">View and manage your invoices</p>
           </div>
         </div>
         <div className="flex items-center space-x-2">
@@ -118,7 +118,7 @@ console.log("sortedInvoices", sortedInvoices);
             checked={showEmbeddable}
             onCheckedChange={setShowEmbeddable}
           />
-          <Label htmlFor="invoice-embeddable-toggle" className="text-sm">
+          <Label htmlFor="invoice-embeddable-toggle" className="text-sm text-gray-700 dark:text-gray-200">
             Show Embeddable
           </Label>
         </div>
@@ -126,29 +126,29 @@ console.log("sortedInvoices", sortedInvoices);
 
       {showEmbeddable ? (
         // Show embeddable iframe
-        <div>
+        <div className="h-96">
           {loadingStates.invoiceEmbeddable ? (
-            <div className="flex items-center justify-center h-96 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-center h-full bg-gray-50 dark:bg-gray-800 rounded-lg">
               <div className="text-center">
                 <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-3" />
-                <p className="text-gray-600">Loading invoice dashboard...</p>
+                <p className="text-gray-600 dark:text-gray-400">Loading invoice dashboard...</p>
               </div>
             </div>
           ) : invoiceEmbeddableUrl ? (
-            <div className="overflow-hidden">
+            <div className="overflow-hidden bg-white dark:bg-gray-800 h-full rounded-lg">
               <iframe
                 src={invoiceEmbeddableUrl}
-                className="w-full h-96"
+                className="w-full h-full"
                 title="Metronome Invoice Dashboard"
                 sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
               />
             </div>
           ) : (
-            <div className="flex items-center justify-center h-96 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-center h-full bg-gray-50 dark:bg-gray-800 rounded-lg">
               <div className="text-center">
-                <FileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-600">Unable to load invoice dashboard</p>
-                <p className="text-sm text-gray-500 mt-1">Please try refreshing the page</p>
+                <FileText className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
+                <p className="text-gray-600 dark:text-gray-400">Unable to load invoice dashboard</p>
+                <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">Please try refreshing the page</p>
               </div>
             </div>
           )}
@@ -157,34 +157,34 @@ console.log("sortedInvoices", sortedInvoices);
         // Show invoices table
         <div>
           {loadingStates.invoices ? (
-            <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-center h-64 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <div className="text-center">
                 <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-3" />
-                <p className="text-gray-600">Loading invoices...</p>
+                <p className="text-gray-600 dark:text-gray-400">Loading invoices...</p>
               </div>
             </div>
           ) : sortedInvoices && sortedInvoices.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 font-semibold text-gray-900">Start Date</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-900">End Date</th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-900">Total Amount</th>
-                    <th className="text-center py-3 px-4 font-semibold text-gray-900">Status</th>
-                    <th className="text-center py-3 px-4 font-semibold text-gray-900">Actions</th>
+                  <tr className="border-b border-gray-200 dark:border-gray-700">
+                    <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-gray-100">Start Date</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-gray-100">End Date</th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-900 dark:text-gray-100">Total Amount</th>
+                    <th className="text-center py-3 px-4 font-semibold text-gray-900 dark:text-gray-100">Status</th>
+                    <th className="text-center py-3 px-4 font-semibold text-gray-900 dark:text-gray-100">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {sortedInvoices.map((invoice, index) => (
-                    <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-3 px-4 text-sm text-gray-900">
+                    <tr key={index} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+                      <td className="py-3 px-4 text-sm text-gray-900 dark:text-gray-100">
                         {formatDate(invoice.start_timestamp)}
                       </td>
-                      <td className="py-3 px-4 text-sm text-gray-900">
+                      <td className="py-3 px-4 text-sm text-gray-900 dark:text-gray-100">
                         {formatDate(invoice.end_timestamp)}
                       </td>
-                      <td className="py-3 px-4 text-sm font-semibold text-gray-900 text-right">
+                      <td className="py-3 px-4 text-sm font-semibold text-gray-900 dark:text-gray-100 text-right">
                         ${formatCurrency(invoice.total, invoice.currency_name).replace('$', '')}
                       </td>
                       <td className="py-3 px-4 text-center">
@@ -211,11 +211,11 @@ console.log("sortedInvoices", sortedInvoices);
               </table>
             </div>
           ) : (
-            <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-center h-64 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <div className="text-center">
-                <FileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-600">No invoices found</p>
-                <p className="text-sm text-gray-500 mt-1">Invoices will appear here when available</p>
+                <FileText className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
+                <p className="text-gray-600 dark:text-gray-400">No invoices found</p>
+                <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">Invoices will appear here when available</p>
               </div>
             </div>
           )}

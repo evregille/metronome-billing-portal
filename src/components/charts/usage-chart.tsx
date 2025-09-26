@@ -112,10 +112,10 @@ export function UsageChart({ data, metricName, totalValue, color = "#3b82f6" }: 
   };
 
   return (
-    <div className="bg-white p-4 rounded-lg border border-gray-200">
+    <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
       <div className="mb-4">
-        <h4 className="text-lg font-semibold text-gray-900">{metricName}</h4>
-        <p className="text-sm text-gray-600">
+        <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{metricName}</h4>
+        <p className="text-sm text-gray-600 dark:text-gray-400">
           Total: <span className="font-semibold text-lg" style={{ color }}>{totalValue.toLocaleString()}</span>
         </p>
       </div>
@@ -151,10 +151,10 @@ export function UsageChart({ data, metricName, totalValue, color = "#3b82f6" }: 
           </ResponsiveContainer>
         </div>
       ) : (
-        <div className="h-32 flex items-center justify-center bg-gray-50 rounded-lg">
+        <div className="h-32 flex items-center justify-center bg-gray-50 dark:bg-gray-700 rounded-lg">
           <div className="text-center">
-            <p className="text-gray-500 text-sm">No valid date data available</p>
-            <p className="text-gray-400 text-xs mt-1">
+            <p className="text-gray-500 dark:text-gray-400 text-sm">No valid date data available</p>
+            <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">
               {data.length > 0 ? `${data.length} entries with invalid timestamps` : 'No data entries'}
             </p>
           </div>

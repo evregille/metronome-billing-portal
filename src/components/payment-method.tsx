@@ -15,7 +15,7 @@ export function PaymentMethod() {
             <CreditCard className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Payment Method</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Payment Method</h3>
           </div>
         </div>
       </div>
@@ -74,12 +74,12 @@ export function PaymentMethod() {
       ) : (
         <div className="space-y-4">
           {/* No Payment Method State */}
-          <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-8 text-center">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CreditCard className="w-8 h-8 text-gray-400" />
+          <div className="bg-gray-50 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-8 text-center">
+            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CreditCard className="w-8 h-8 text-gray-400 dark:text-gray-500" />
             </div>
-            <h4 className="text-lg font-medium text-gray-900 mb-2">No Payment Method</h4>
-            <p className="text-gray-600 mb-4">
+            <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No Payment Method</h4>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
               No payment method has been saved for this account.
             </p>
             <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
@@ -89,12 +89,12 @@ export function PaymentMethod() {
           </div>
 
           {/* Warning Status */}
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
             <div className="flex items-center space-x-2">
-              <AlertCircle className="w-4 h-4 text-amber-600" />
-              <span className="text-sm font-medium text-amber-800">Payment method required</span>
+              <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              <span className="text-sm font-medium text-amber-800 dark:text-amber-200">Payment method required</span>
             </div>
-            <p className="text-xs text-amber-700 mt-1">
+            <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
               A payment method is required for automatic payments and recharges
             </p>
           </div>

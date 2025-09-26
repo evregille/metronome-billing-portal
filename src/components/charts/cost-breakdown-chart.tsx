@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { useMetronome } from "@/hooks/use-metronome-config";
 import { formatCurrency } from "@/lib/utils";
-import { BarChart3, Filter, ChevronDown, Loader2 } from "lucide-react";
+import { BarChart3, ChevronDown, Loader2 } from "lucide-react";
 
 interface ProductFilter {
   name: string;
@@ -192,8 +192,8 @@ export function CostBreakdownChart() {
             <BarChart3 className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Costs Breakdown</h3>
-            <p className="text-sm text-gray-600">Daily spending trends</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Costs Breakdown</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Daily spending trends</p>
           </div>
         </div>
         <div className="flex items-center justify-center py-12">
@@ -214,8 +214,8 @@ export function CostBreakdownChart() {
             <BarChart3 className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Cost Breakdown</h3>
-            <p className="text-sm text-gray-600">Loading cost data...</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Cost Breakdown</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Loading cost data...</p>
           </div>
         </div>
         
@@ -234,17 +234,17 @@ export function CostBreakdownChart() {
             <BarChart3 className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Cost Breakdown</h3>
-            <p className="text-sm text-gray-600">No cost data available</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Cost Breakdown</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">No cost data available</p>
           </div>
         </div>
         
         <div className="text-center py-12">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <BarChart3 className="w-8 h-8 text-gray-400" />
+          <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+            <BarChart3 className="w-8 h-8 text-gray-400 dark:text-gray-500" />
           </div>
-          <h4 className="text-lg font-medium text-gray-900 mb-2">No Cost Data Available</h4>
-          <p className="text-gray-600 mb-4">
+          <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No Cost Data Available</h4>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
             No cost breakdown data found for the selected period.
           </p>
         </div>
@@ -260,17 +260,17 @@ export function CostBreakdownChart() {
             <BarChart3 className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Costs Breakdown</h3>
-            <p className="text-sm text-gray-600">Daily spending trends</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Costs Breakdown</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Daily spending trends</p>
           </div>
         </div>
         
         <div className="text-center py-12">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <BarChart3 className="w-8 h-8 text-gray-400" />
+          <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+            <BarChart3 className="w-8 h-8 text-gray-400 dark:text-gray-500" />
           </div>
-          <h4 className="text-lg font-medium text-gray-900 mb-2">No Cost Data Available</h4>
-          <p className="text-gray-600 mb-4">
+          <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No Cost Data Available</h4>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
             No cost breakdown data found for the selected period.
           </p>
         </div>
@@ -286,8 +286,8 @@ export function CostBreakdownChart() {
             <BarChart3 className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Cost Breakdown</h3>
-            <p className="text-sm text-gray-600">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Cost Breakdown</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               {selectedProduct === "All Products"
                 ? 'Breakdown by Product'
                 : selectedProduct && selectedProperty 
@@ -303,12 +303,12 @@ export function CostBreakdownChart() {
           
           {/* Product Filter */}
           <div className="flex flex-col space-y-1">
-            <label className="text-xs font-medium text-gray-600">Filter by Product</label>
+            <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Filter by Product</label>
             <div className="relative">
               <select
                 value={selectedProduct}
                 onChange={(e) => handleProductChange(e.target.value)}
-                className="appearance-none bg-white border border-gray-300 rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="appearance-none bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 pr-8 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               >
                 {availableProducts.map((product) => (
                   <option key={product.name} value={product.name}>
@@ -323,12 +323,12 @@ export function CostBreakdownChart() {
           {/* Property Filter - Only show for specific products */}
           {selectedProduct !== "All Products" && availableProperties.length > 0 && (
             <div className="flex flex-col space-y-1">
-              <label className="text-xs font-medium text-gray-600">Group by</label>
+              <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Group by</label>
               <div className="relative">
                 <select
                   value={selectedProperty}
                   onChange={(e) => handlePropertyChange(e.target.value)}
-                  className="appearance-none bg-white border border-gray-300 rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="appearance-none bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 pr-8 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 >
                   {availableProperties.map((property) => (
                     <option key={property} value={property}>
