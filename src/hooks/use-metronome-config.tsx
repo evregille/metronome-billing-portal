@@ -150,6 +150,7 @@ interface RawUsageData {
 interface LoadingStates {
   balance: boolean;
   costs: boolean;
+  currentSpend: boolean;
   alerts: boolean;
   invoiceEmbeddable: boolean;
   commitsEmbeddable: boolean;
@@ -314,6 +315,7 @@ export function MetronomeProvider({
   const [loadingStates, setLoadingStates] = useState<LoadingStates>({
     balance: false,
     costs: false,
+    currentSpend: false,
     alerts: false,
     invoiceEmbeddable: false,
     commitsEmbeddable: false,
