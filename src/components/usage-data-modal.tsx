@@ -285,7 +285,7 @@ export function UsageDataModal({
             <div className="flex items-center justify-center py-8">
               <div className="text-center">
                 <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-3" />
-                <p className="text-gray-600">Loading metric details...</p>
+                <p className="text-gray-600 dark:text-gray-400">Loading metric details...</p>
               </div>
             </div>
           )}

@@ -28,7 +28,7 @@ interface CustomerContextType {
   selectedContract: Contract | null;
   setSelectedContract: (contract: Contract) => void;
   loadingContracts: boolean;
-  fetchContracts: (customerId: string) => Promise<void>;
+  fetchContracts: (customerId: string, isInitialLoad?: boolean) => Promise<void>;
   onContractSelected?: (contract: Contract) => void;
 }
 
@@ -72,16 +72,21 @@ export function CustomerProvider({
         
         setCustomers(metronomeCustomers);
         
-        // Set default customer (first one from Metronome)
+        // Set default customer (first one from Metronome) and fetch contracts
         if (metronomeCustomers.length > 0) {
-          setSelectedCustomer(metronomeCustomers[0]);
+          const firstCustomer = metronomeCustomers[0];
+          setSelectedCustomer(firstCustomer);
+          // Automatically fetch contracts for the first customer
+          await fetchContracts(firstCustomer.metronome_customer_id, true);
         } else {
           setSelectedCustomer(null);
+          setLoading(false);
         }
       } else {
         console.error('Failed to load customers from Metronome:', response.message);
         setCustomers([]);
         setSelectedCustomer(null);
+        setLoading(false);
         
         // Show user-friendly error message for API key issues
         if (response.message?.includes('Invalid API key')) {
@@ -93,12 +98,14 @@ export function CustomerProvider({
       console.error('Error loading customers from Metronome:', error);
       setCustomers([]);
       setSelectedCustomer(null);
-    } finally {
       setLoading(false);
+    } finally {
+      // Keep loading state active until contracts are also loaded
+      // The loading state will be set to false in fetchContracts
     }
   }, []);
 
-  const fetchContracts = useCallback(async (customerId: string) => {
+  const fetchContracts = useCallback(async (customerId: string, isInitialLoad = false) => {
     try {
       setLoadingContracts(true);
       setContracts([]);
@@ -143,6 +150,10 @@ export function CustomerProvider({
       setSelectedContract(null);
     } finally {
       setLoadingContracts(false);
+      // Also set main loading to false when contracts are loaded (for initial load sequence)
+      if (isInitialLoad) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -178,6 +189,9 @@ export function CustomerProvider({
 
   const handleSetSelectedCustomer = (customer: Customer) => {
     setSelectedCustomer(customer);
+    // Clear contracts and selected contract first
+    setContracts([]);
+    setSelectedContract(null);
     // Fetch contracts for the selected customer
     fetchContracts(customer.metronome_customer_id);
     // No localStorage - only use dropdown selection

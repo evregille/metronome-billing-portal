@@ -181,23 +181,8 @@ function DashboardHeader({
 
 // Component to handle customer and contract selection and fetch their details
 function CustomerAndContractHandler({ children }: { children: React.ReactNode }) {
-  const { selectedCustomer, selectedContract } = useCustomer();
-  const { fetchCustomerDetails, fetchContractDetails } = useMetronome();
-
-  // Fetch customer details when customer changes
-  useEffect(() => {
-    if (selectedCustomer) {
-      fetchCustomerDetails();
-    }
-  }, [selectedCustomer, fetchCustomerDetails]);
-
-  // Fetch contract details when contract changes
-  useEffect(() => {
-    if (selectedContract) {
-      fetchContractDetails();
-    }
-  }, [selectedContract, fetchContractDetails]);
-
+  // The automatic data loading in use-metronome-config handles fetching details
+  // No need for redundant useEffect calls here
   return <>{children}</>;
 }
 
@@ -333,7 +318,17 @@ function DashboardContent() {
 
       {/* Main Content */}
       <main>
-        {selectedCustomer ? (
+        {loading ? (
+          <div className="min-h-screen gradient-bg dark:bg-gray-900 flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-white/20 dark:bg-gray-800/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-6 animate-pulse">
+                <span className="text-white font-bold text-2xl">{businessName.charAt(0)}</span>
+              </div>
+              <h2 className="text-2xl font-semibold text-white mb-3">Loading Customers...</h2>
+              <p className="text-white/80">Fetching customer data from Metronome</p>
+            </div>
+          </div>
+        ) : selectedCustomer ? (
           <MetronomeProvider 
             customerId={selectedCustomer.metronome_customer_id} 
             contractId={selectedContract?.id}

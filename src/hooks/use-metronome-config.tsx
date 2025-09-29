@@ -343,6 +343,29 @@ export function MetronomeProvider({
       setCommitsEmbeddableUrl(null);
       setUsageEmbeddableUrl(null);
       
+      // Reset all cache keys
+      setCostsCacheKey("");
+      setUsageCacheKey("");
+      setInvoicesCacheKey("");
+      setInvoiceEmbeddableCacheKey("");
+      setCommitsEmbeddableCacheKey("");
+      setUsageEmbeddableCacheKey("");
+      
+      // Reset all loading states
+      setLoadingStates({
+        balance: false,
+        costs: false,
+        currentSpend: false,
+        alerts: false,
+        invoices: false,
+        rawUsageData: false,
+        invoiceEmbeddable: false,
+        commitsEmbeddable: false,
+        usageEmbeddable: false,
+        customerDetails: false,
+        contractDetails: false,
+      });
+      
       // Update config with new object to trigger re-renders
       setConfig({
         customer_id: customerId,
@@ -353,12 +376,10 @@ export function MetronomeProvider({
         invoice_breakdown_details: undefined, // Clear invoice breakdown details when changing
       });
       
-      // Clear transitioning state after a brief delay to allow components to render
-      setTimeout(() => {
-        setIsCustomerTransitioning(false);
-      }, 100);
+      // Don't clear transitioning state here - let the automatic data loading useEffect handle it
     }
   }, [customerId, contractId, config.customer_id, config.contract_id]);
+
 
   const fetchBalance = useCallback(async () => {
     if (!config.customer_id || !config.contract_id) return;
@@ -704,6 +725,24 @@ export function MetronomeProvider({
     }
   }, [config.customer_id, config.contract_id, apiKey]);
 
+
+  // Automatically load essential data when customer and contract are first available
+  useEffect(() => {
+    // Only load data if the config matches the current props
+    if (config.customer_id === customerId && config.contract_id === contractId) {
+      // Clear transitioning state when we start loading new data
+      setIsCustomerTransitioning(false);
+      
+      // Load essential data automatically
+      fetchBalance();
+      fetchCurrentSpend();
+      fetchAlerts();
+      fetchCustomerDetails();
+      fetchContractDetails();
+    }
+  }, [config.customer_id, config.contract_id, customerId, contractId, fetchBalance, fetchCurrentSpend, fetchAlerts, fetchCustomerDetails, fetchContractDetails]);
+
+
   const updateSubscriptionQuantity = useCallback(async (contractId: string, subscriptionId: string, newQuantity: number) => {
     if (!config.customer_id) return;
 
@@ -958,6 +997,8 @@ export function MetronomeProvider({
       throw error;
     }
   }, [config.customer_id, apiKey]);
+
+
 
   const value: MetronomeContextType = {
     config,
