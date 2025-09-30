@@ -198,7 +198,7 @@ export function CostBreakdownChart() {
         </div>
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
-            <Loader2 className="w-8 h-8 animate-spin text-purple-500 mx-auto mb-3" />
+            <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-3" />
             <p className="text-gray-600 dark:text-gray-400">Loading customer data...</p>
           </div>
         </div>
