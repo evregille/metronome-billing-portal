@@ -222,7 +222,7 @@ export function UsageDataModal({
         <div className="space-y-6">
           {/* Billable Metric Selection */}
           <div className="space-y-2">
-            <Label htmlFor="metric-select">Select Billable Metric</Label>
+            <Label htmlFor="metric-select" className="dark:text-gray-100">Select Billable Metric</Label>
             <Select value={selectedMetricId} onValueChange={handleMetricSelect}>
               <SelectTrigger>
                 <SelectValue placeholder="Choose a billable metric..." />
@@ -239,7 +239,7 @@ export function UsageDataModal({
 
           {/* Date Picker */}
           <div className="space-y-2">
-            <Label htmlFor="usage-date" className="flex items-center space-x-2">
+            <Label htmlFor="usage-date" className="flex items-center space-x-2 dark:text-gray-100">
               <Calendar className="w-4 h-4" />
               <span>Usage Date (Optional)</span>
             </Label>
@@ -250,10 +250,10 @@ export function UsageDataModal({
               onChange={(e) => setSelectedDate(e.target.value)}
               max={new Date().toISOString().split('T')[0]}
               min={new Date(Date.now() - 34 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
-              className="text-sm"
+              className="text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
               placeholder="Select a date (up to 34 days ago)"
             />
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               Leave empty to use current time. Select a date up to 34 days in the past.
             </p>
           </div>
@@ -295,20 +295,20 @@ export function UsageDataModal({
             <div className="space-y-4">
               <div className="flex items-center space-x-2">
                 <CheckCircle className="w-5 h-5 text-green-600" />
-                <h3 className="text-lg font-semibold text-gray-900">Metric Details</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Metric Details</h3>
               </div>
               
-              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-sm font-medium text-gray-700">Name</Label>
-                    <p className="text-sm text-gray-900 mt-1">{metricDetails.name}</p>
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Name</Label>
+                    <p className="text-sm text-gray-900 dark:text-gray-100 mt-1">{metricDetails.name}</p>
                   </div>
                   
                   {metricDetails.aggregation_type && (
                     <div>
-                      <Label className="text-sm font-medium text-gray-700">Aggregation Type</Label>
-                      <p className="text-sm text-gray-900 mt-1 capitalize">
+                      <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Aggregation Type</Label>
+                      <p className="text-sm text-gray-900 dark:text-gray-100 mt-1 capitalize">
                         {metricDetails.aggregation_type.replace(/_/g, ' ')}
                       </p>
                     </div>
@@ -316,20 +316,20 @@ export function UsageDataModal({
                   
                   {metricDetails.event_type_filter?.length > 0 && (
                     <div>
-                      <Label className="text-sm font-medium text-gray-700">Event Name</Label>
-                      <p className="text-sm text-gray-900 mt-1">{metricDetails.event_type_filter.join(', ')}</p>
+                      <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Event Name</Label>
+                      <p className="text-sm text-gray-900 dark:text-gray-100 mt-1">{metricDetails.event_type_filter.join(', ')}</p>
                     </div>
                   )}
                 </div>
 
                 {/* Property Filter Inputs */}
                 {filterInputs.length > 0 && (
-                  <div className="pt-3 border-t border-gray-200">
-                    <Label className="text-sm font-medium text-gray-700 mb-3 block">Event Builder</Label>
+                  <div className="pt-3 border-t border-gray-200 dark:border-gray-600">
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 block">Event Builder</Label>
                     <div className="space-y-3">
                       {filterInputs.map((input, index) => (
                         <div key={index} className="space-y-2">
-                          <Label className="text-sm font-medium text-gray-700 capitalize">
+                          <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">
                             {input.name.replace(/_/g, ' ')}
                           </Label>
                           {Array.isArray(input.in_values) && input.in_values.length > 0 ? (
@@ -355,7 +355,7 @@ export function UsageDataModal({
                               value={input.selectedValue}
                               onChange={(e) => handleFilterChange(index, 'selectedValue', e.target.value)}
                               placeholder={`Enter ${input.name} value`}
-                              className="text-sm"
+                              className="text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
                             />
                           )}
                         </div>

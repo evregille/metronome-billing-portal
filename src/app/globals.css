@@ -111,4 +111,14 @@
   .dark [data-state="checked"] [data-state="checked"] {
     @apply bg-blue-600;
   }
+  
+  /* Fix date input calendar icon visibility in dark mode */
+  .dark input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+  }
+  
+  .dark input[type="date"]::-webkit-inner-spin-button,
+  .dark input[type="date"]::-webkit-clear-button {
+    filter: invert(1);
+  }
 }
