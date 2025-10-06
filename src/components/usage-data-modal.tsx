@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Send, Loader2, CheckCircle, XCircle, Calendar, Calculator } from "lucide-react";
+import { Send, Loader2, CheckCircle, XCircle, Calendar, Calculator, Edit3 } from "lucide-react";
 import { useMetronome } from "@/hooks/use-metronome-config";
 import { formatCurrency } from "@/lib/utils";
 
@@ -51,7 +51,7 @@ interface UsageDataModalProps {
   isOpen: boolean;
   onClose: () => void;
   billableMetrics: BillableMetric[];
-  mode?: "send" | "forecast";
+  mode?: "send" | "forecast" | "correct";
 }
 
 export function UsageDataModal({ 
@@ -60,7 +60,7 @@ export function UsageDataModal({
   billableMetrics,
   mode = "send"
 }: UsageDataModalProps) {
-  const { fetchBillableMetric, sendUsageData, previewEvents } = useMetronome();
+  const { config, fetchBillableMetric, sendUsageData, previewEvents } = useMetronome();
   const [selectedMetricId, setSelectedMetricId] = useState<string>("");
   const [metricDetails, setMetricDetails] = useState<BillableMetricDetails | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -71,6 +71,26 @@ export function UsageDataModal({
   const [sentEvents, setSentEvents] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [forecastResult, setForecastResult] = useState<any>(null);
+
+  // Get invoice start date from config for correct mode
+  const invoiceStartDate = config.invoice_draft_details?.[0]?.start_timestamp;
+  
+  // Calculate date constraints based on mode
+  const getDateConstraints = () => {
+    if (mode === "correct") {
+      return {
+        min: invoiceStartDate ? new Date(invoiceStartDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        max: new Date().toISOString().split('T')[0]
+      };
+    } else {
+      return {
+        min: new Date(Date.now() - 34 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        max: new Date().toISOString().split('T')[0]
+      };
+    }
+  };
+
+  const dateConstraints = getDateConstraints();
 
   const handleClose = () => {
     setSelectedMetricId("");
@@ -135,6 +155,12 @@ export function UsageDataModal({
   const handleSendUsageData = async () => {
     if (!selectedMetricId) return;
     
+    // For correct mode, require a date
+    if (mode === "correct" && !selectedDate) {
+      setError("Please select a date for the usage correction");
+      return;
+    }
+    
     setIsSending(true);
     setError(null);
     setSuccess(null);
@@ -168,7 +194,7 @@ export function UsageDataModal({
           setSuccess(null);
         }, 3000);
       } else {
-        // Send usage data
+        // Send usage data (both send and correct modes)
         const result = await sendUsageData(
           metricDetails?.event_type_filter?.in_values[0],
           properties, 
@@ -179,16 +205,24 @@ export function UsageDataModal({
         const transactionId = result.usage.transaction_id;
         setSentEvents(prev => [...prev, transactionId]);
         
-        setSuccess(`Usage data sent successfully! Transaction ID: ${transactionId}`);
-        
-        // Clear success message after 2 seconds but keep the modal open
-        setTimeout(() => {
-          setSuccess(null);
-        }, 2000);
+        if (mode === "correct") {
+          setSuccess(`Usage data corrected successfully! Transaction ID: ${transactionId}`);
+          // Close modal after successful correction
+          setTimeout(() => {
+            handleClose();
+          }, 2000);
+        } else {
+          setSuccess(`Usage data sent successfully! Transaction ID: ${transactionId}`);
+          // Clear success message after 2 seconds but keep the modal open
+          setTimeout(() => {
+            setSuccess(null);
+          }, 2000);
+        }
       }
       
     } catch (err) {
-      setError(err instanceof Error ? err.message : `Failed to ${mode === "forecast" ? "forecast costs" : "send usage data"}`);
+      const actionText = mode === "forecast" ? "forecast costs" : mode === "correct" ? "correct usage data" : "send usage data";
+      setError(err instanceof Error ? err.message : `Failed to ${actionText}`);
     } finally {
       setIsSending(false);
     }
@@ -204,6 +238,11 @@ export function UsageDataModal({
                 <Calculator className="w-5 h-5" />
                 <span>Forecast Costs</span>
               </>
+            ) : mode === "correct" ? (
+              <>
+                <Edit3 className="w-5 h-5 text-orange-500" />
+                <span>Correct Usage Data</span>
+              </>
             ) : (
               <>
                 <Send className="w-5 h-5" />
@@ -214,6 +253,11 @@ export function UsageDataModal({
           <DialogDescription>
             {mode === "forecast" 
               ? "Select a billable metric to preview how events would be processed and see cost forecasts."
+              : mode === "correct" 
+              ? (invoiceStartDate 
+                  ? `Select a billable metric and provide corrected usage data. The date can be from the current invoice start date (${new Date(invoiceStartDate).toLocaleDateString()}) onwards.`
+                  : "Select a billable metric and provide corrected usage data."
+                )
               : "Select a billable metric to view its details and send usage data."
             }
           </DialogDescription>
@@ -241,20 +285,26 @@ export function UsageDataModal({
           <div className="space-y-2">
             <Label htmlFor="usage-date" className="flex items-center space-x-2 dark:text-gray-100">
               <Calendar className="w-4 h-4" />
-              <span>Usage Date (Optional)</span>
+              <span>Usage Date {mode === "correct" ? "*" : "(Optional)"}</span>
             </Label>
             <Input
               id="usage-date"
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              max={new Date().toISOString().split('T')[0]}
-              min={new Date(Date.now() - 34 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+              max={dateConstraints.max}
+              min={dateConstraints.min}
               className="text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
-              placeholder="Select a date (up to 34 days ago)"
+              placeholder={mode === "correct" ? "Select a date" : "Select a date (up to 34 days ago)"}
             />
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Leave empty to use current time. Select a date up to 34 days in the past.
+              {mode === "correct" 
+                ? (invoiceStartDate 
+                    ? `Date can be from ${new Date(invoiceStartDate).toLocaleDateString()} (invoice start date) onwards`
+                    : "Select the date for the usage correction"
+                  )
+                : "Leave empty to use current time. Select a date up to 34 days in the past."
+              }
             </p>
           </div>
 
@@ -456,13 +506,13 @@ export function UsageDataModal({
           </Button>
           <Button
             onClick={handleSendUsageData}
-            disabled={!selectedMetricId || isLoading || isSending}
+            disabled={!selectedMetricId || isLoading || isSending || (mode === "correct" && !selectedDate)}
             className="w-full sm:w-auto"
           >
             {isSending ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                {mode === "forecast" ? "Forecasting..." : "Sending..."}
+                {mode === "forecast" ? "Forecasting..." : mode === "correct" ? "Correcting..." : "Sending..."}
               </>
             ) : (
               <>
@@ -470,6 +520,11 @@ export function UsageDataModal({
                   <>
                     <Calculator className="w-4 h-4 mr-2" />
                     {forecastResult ? "Generate New Forecast" : "Forecast Costs"}
+                  </>
+                ) : mode === "correct" ? (
+                  <>
+                    <Edit3 className="w-4 h-4 mr-2" />
+                    Correct Usage
                   </>
                 ) : (
                   <>

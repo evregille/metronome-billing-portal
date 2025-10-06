@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMetronome } from "@/hooks/use-metronome-config";
-import { BarChart3, Loader2, TrendingUp, Send, Calculator } from "lucide-react";
+import { BarChart3, Loader2, TrendingUp, Send, Calculator, Edit3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -23,6 +23,7 @@ export function Usage() {
   const [showEmbeddable, setShowEmbeddable] = useState(false);
   const [showUsageDataModal, setShowUsageDataModal] = useState(false);
   const [showForecastModal, setShowForecastModal] = useState(false);
+  const [showCorrectUsageModal, setShowCorrectUsageModal] = useState(false);
 
 
   useEffect(() => {
@@ -78,6 +79,15 @@ export function Usage() {
           </div>
         </div>
         <div className="flex items-center space-x-3">
+          {/* <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowCorrectUsageModal(true)}
+            className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white hover:text-white border-0"
+          >
+            <Edit3 className="w-4 h-4 mr-2" />
+            Correct Usage
+          </Button> */}
           <Button
             variant="outline"
             size="sm"
@@ -204,6 +214,14 @@ export function Usage() {
         onClose={() => setShowForecastModal(false)}
         billableMetrics={rawUsageData?.usage_data?.map(data => data.billable_metric) || []}
         mode="forecast"
+      />
+
+      {/* Correct Usage Modal */}
+      <UsageDataModal
+        isOpen={showCorrectUsageModal}
+        onClose={() => setShowCorrectUsageModal(false)}
+        billableMetrics={rawUsageData?.usage_data?.map(data => data.billable_metric) || []}
+        mode="correct"
       />
     </div>
   );

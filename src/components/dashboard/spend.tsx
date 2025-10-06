@@ -52,8 +52,7 @@ export function Spend() {
                                                                                               { total: amount, currency_name: currency }
                                                                                             ]));
 
-  const totalSpend: number = Object.values(totalSpendByCurrency).reduce((sum, amount) => sum + amount.total, 0) 
-      
+  const totalSpend: number = Object.values(totalSpendByCurrency).reduce((sum, amount) => sum + amount.total, 0);
   const productCount = currentSpend?.productTotals ? Object.keys(currentSpend.productTotals).length : 0;
   
   // Check if spend threshold configuration exists
@@ -208,19 +207,17 @@ export function Spend() {
           </div>
         </div>
         <div className="text-right">
-          {Object.keys(totalSpendByCurrency).length > 0 ? (
+          {Object.keys(totalSpendByCurrency).length > 0 && totalSpendByCurrency["Overages"] ? (
             <div className="space-y-1">
-              {Object.entries(totalSpendByCurrency).map(([category, data]) => (
-                <div key={category} className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {formatCurrency(data.total, data.currency_name)}
-                </div>
-              ))}
+              <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                {formatCurrency(totalSpendByCurrency["Overages"].total, totalSpendByCurrency["Overages"].currency_name)}
+              </div>
             </div>
           ) : (
             <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-              {formatCurrency(totalSpend)}
+              {formatCurrency(totalSpend, totalSpendByCurrency[Object.entries(totalSpendByCurrency)[0]?.[0]]?.currency_name || "USD (cents)")}
             </div>
-          )}
+          )} 
           <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">{productCount} products</div>
           
           {/* Spend Threshold Button */}
