@@ -252,7 +252,7 @@ export function UsageDataModal({
           </DialogTitle>
           <DialogDescription>
             {mode === "forecast" 
-              ? "Select a billable metric to preview how events would be processed and see cost forecasts."
+              ? "Forecast costs with usage data: Metronome does the estimation in the context of the customer's contract terms and current past usage. Select a billable metric to model a usage event and see cost forecasts."
               : mode === "correct" 
               ? (invoiceStartDate 
                   ? `Select a billable metric and provide corrected usage data. The date can be from the current invoice start date (${new Date(invoiceStartDate).toLocaleDateString()}) onwards.`

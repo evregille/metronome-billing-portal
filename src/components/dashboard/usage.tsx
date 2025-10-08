@@ -113,7 +113,7 @@ export function Usage() {
               onCheckedChange={setShowEmbeddable}
             />
             <Label htmlFor="usage-embeddable-toggle" className="text-sm text-gray-700 dark:text-gray-200">
-              Show Embeddable
+              Show Metronome Embeddable UI
             </Label>
           </div>
         </div>

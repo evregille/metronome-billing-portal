@@ -463,10 +463,9 @@ export function Balance() {
               id="embeddable-toggle"
               checked={showEmbeddable}
               onCheckedChange={setShowEmbeddable}
-              className="data-[state=checked]:bg-blue-600 data-[state=unchecked]:bg-gray-400 dark:data-[state=unchecked]:bg-gray-600"
             />
-            <Label htmlFor="embeddable-toggle" className="text-sm font-medium text-gray-700 dark:text-gray-200">
-              Show Embeddable
+            <Label htmlFor="embeddable-toggle" className="text-sm text-gray-700 dark:text-gray-200">
+              Show Metronome Embeddable UI
             </Label>
           </div>
         </div>

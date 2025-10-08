@@ -68,6 +68,16 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
   
+  /* Default to dark background to prevent flash */
+  html {
+    @apply bg-gray-900;
+  }
+  
+  /* Light mode body background */
+  html:not(.dark) body {
+    @apply bg-white;
+  }
+  
   /* Dark mode body background */
   .dark body {
     @apply bg-gray-900;
