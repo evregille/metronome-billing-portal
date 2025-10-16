@@ -10,6 +10,7 @@ import React, {
 import {
   createCustomerSpendAlert,
   createCustomerBalanceAlert,
+  createCustomerCommitPercentageAlert,
   deleteCustomerAlert,
   createMetronomeEmbeddableLink,
   fetchCurrentSpendDraftInvoice,
@@ -120,6 +121,7 @@ interface AlertData {
 interface AlertsResult {
   balanceAlert: AlertData | null;
   spendAlert: AlertData | null;
+  commitPercentageAlert: AlertData | null;
 }
 
 interface UsageDataEntry {
@@ -192,6 +194,7 @@ interface MetronomeContextType {
   fetchUsageEmbeddable: (forceRefresh?: boolean, forceLightMode?: boolean) => Promise<void>;
   createSpendAlert: (threshold: number) => Promise<void>;
   createBalanceAlert: (threshold: number) => Promise<void>;
+  createCommitPercentageAlert: (percentage: number) => Promise<void>;
   deleteAlert: (alertId: string) => Promise<void>;
   fetchBillableMetric: (billableMetricId: string) => Promise<any>;
   sendUsageData: (event_type: string, properties:  Record<string, any>, timestamp: string) => Promise<any>;
@@ -917,6 +920,27 @@ export function MetronomeProvider({
     }
   }, [config.customer_id, apiKey, fetchAlerts]);
 
+  const createCommitPercentageAlert = useCallback(async (percentage: number) => {
+    if (!config.customer_id) return;
+
+    try {
+      const response = await createCustomerCommitPercentageAlert(
+        config.customer_id,
+        100-percentage,
+        apiKey, // This can be undefined, and backend will use env var
+      );
+
+      if (response.status === "success") {
+        // Refresh alerts after creating a new one
+        await fetchAlerts();
+      } else {
+        console.error("Failed to create commit percentage alert:", response.message);
+      }
+    } catch (error) {
+      console.error("Error creating commit percentage alert:", error);
+    }
+  }, [config.customer_id, apiKey, fetchAlerts]);
+
   const deleteAlert = useCallback(async (alertId: string) => {
     try {
       
@@ -1035,6 +1059,7 @@ export function MetronomeProvider({
     fetchUsageEmbeddable,
     createSpendAlert,
     createBalanceAlert,
+    createCommitPercentageAlert,
     deleteAlert,
     fetchBillableMetric,
     sendUsageData,

@@ -71,6 +71,7 @@ type AlertData = {
 type AlertsResult = {
   balanceAlert: AlertData | null;
   spendAlert: AlertData | null;
+  commitPercentageAlert: AlertData | null;
 };
 
 // Add this type definition near the other types
@@ -283,11 +284,17 @@ export async function fetchCustomerAlerts(
       (a) => a.alert.type === "spend_threshold_reached"
     ) || null;
 
+    // Find commit percentage alert (low_remaining_commit_percentage_reached)
+    const commitPercentageAlert = response.data.find(
+      (a) => a.alert.type === "low_remaining_commit_percentage_reached"
+    ) || null;
+
     return {
       status: "success",
       result: {
         balanceAlert,
         spendAlert,
+        commitPercentageAlert,
       },
     };
   } catch (error) {
@@ -336,6 +343,30 @@ export async function createCustomerBalanceAlert(
       evaluate_on_create: true,
       threshold: threshold*100,
       credit_type_id: '2714e483-4ff1-48e4-9e25-ac732e8f24f2' // USD
+    });
+    return { status: "success", result: response.data };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+export async function createCustomerCommitPercentageAlert(
+  customer_id: string,
+  percentage: number,
+  api_key?: string,
+): Promise<ApiResponse<any>> {
+  try {
+    const client = getMetronomeClient(api_key);
+    const response = await client.v1.alerts.create({
+      customer_id: customer_id,
+      alert_type: "low_remaining_commit_percentage_reached",
+      name: `Commit Percentage Alert - ${percentage}%`,
+      evaluate_on_create: true,
+      threshold: percentage,
+      credit_type_id: '2714e483-4ff1-48e4-9e25-ac732e8f24f2' // USD - same as balance alert
     });
     return { status: "success", result: response.data };
   } catch (error) {

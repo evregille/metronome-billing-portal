@@ -21,6 +21,7 @@ export function Balance() {
     rechargeBalance,
     updateAutoRecharge,
     createBalanceAlert,
+    createCommitPercentageAlert,
     deleteAlert,
     commitsEmbeddableUrl, 
     loadingStates,
@@ -34,6 +35,8 @@ export function Balance() {
   const [, setAlertEnabled] = useState(true);
   const [showRechargeModal, setShowRechargeModal] = useState(false);
   const [showAutoRechargeModal, setShowAutoRechargeModal] = useState(false);
+  const [alertType, setAlertType] = useState<'balance' | 'percentage'>('balance');
+  const [percentageThreshold, setPercentageThreshold] = useState(20);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Check if auto recharge is already configured
@@ -55,14 +58,20 @@ export function Balance() {
     }
   }, [showEmbeddable, config, fetchCommitsEmbeddable]);
 
-  // Initialize alert form when balance alert exists
+  // Initialize alert form when balance alert or commit percentage alert exists
   useEffect(() => {
     if (alerts?.balanceAlert) {
       setAlertThreshold(alerts.balanceAlert.alert.threshold || 1000);
       setAlertEnabled(alerts.balanceAlert.alert.enabled || false);
+      setAlertType('balance');
+      setIsEditingAlert(false);
+    } else if (alerts?.commitPercentageAlert) {
+      setPercentageThreshold(alerts.commitPercentageAlert.alert.threshold || 20);
+      setAlertEnabled(alerts.commitPercentageAlert.alert.enabled || false);
+      setAlertType('percentage');
       setIsEditingAlert(false);
     }
-  }, [alerts?.balanceAlert]);
+  }, [alerts?.balanceAlert, alerts?.commitPercentageAlert]);
 
   // Calculate percentage of balance used
   const calculateUsagePercentage = () => {
@@ -86,13 +95,19 @@ export function Balance() {
   };
 
   const handleCreateAlert = async () => {
-    await createBalanceAlert(alertThreshold);
+    if (alertType === 'balance') {
+      await createBalanceAlert(alertThreshold);
+    } else {
+      await createCommitPercentageAlert(percentageThreshold);
+    }
     setIsEditingAlert(false);
   };
 
   const handleDeleteAlert = async () => {
     if (alerts?.balanceAlert) {
       await deleteAlert(alerts.balanceAlert.alert.id);
+    } else if (alerts?.commitPercentageAlert) {
+      await deleteAlert(alerts.commitPercentageAlert.alert.id);
     }
   };
 
@@ -366,10 +381,10 @@ export function Balance() {
                   <Bell className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                   <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Balance Notifications</h4>
                 </div>
-                {alerts?.balanceAlert && (
+                {(alerts?.balanceAlert || alerts?.commitPercentageAlert) && (
                   <div className="flex items-center space-x-2">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getAlertStatusColor(alerts.balanceAlert.customer_status)}`}>
-                      {getAlertStatusText(alerts.balanceAlert.customer_status)}
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getAlertStatusColor(alerts?.balanceAlert?.customer_status || alerts?.commitPercentageAlert?.customer_status)}`}>
+                      {getAlertStatusText(alerts?.balanceAlert?.customer_status || alerts?.commitPercentageAlert?.customer_status)}
                     </span>
                     <Button
                       variant="outline"
@@ -384,12 +399,22 @@ export function Balance() {
               </div>
               
               {alerts?.balanceAlert ? (
-                // Show existing alert
+                // Show existing balance alert
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <h5 className="font-medium text-gray-900 dark:text-gray-100">Low Balance Notification</h5>
                       <p className="text-sm text-gray-600 dark:text-gray-400">We will notify if your balance reaches below {formatCurrency(alerts.balanceAlert.alert.threshold || 0, balance.currency_name)}</p>
+                    </div>
+                  </div>
+                </div>
+              ) : alerts?.commitPercentageAlert ? (
+                // Show existing commit percentage alert
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h5 className="font-medium text-gray-900 dark:text-gray-100">Commit Percentage Notification</h5>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">We will notify if your commit usage reaches {alerts.commitPercentageAlert.alert.threshold ? 100-alerts.commitPercentageAlert.alert.threshold : 0}%</p>
                     </div>
                   </div>
                 </div>
@@ -412,22 +437,74 @@ export function Balance() {
                   
                   {isEditingAlert && (
                     <div className="space-y-3 pt-3 border-t border-gray-200">
-                      <div className="flex items-center space-x-3">
-                        <Label htmlFor="balance-threshold" className="text-sm text-gray-600 dark:text-gray-400">
-                          We will notify you when your balance reaches:
-                        </Label>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm text-gray-500">{getCoinSymbol(balance.currency_name)}</span>
-                          <Input
-                            id="balance-threshold"
-                            type="number"
-                            value={alertThreshold}
-                            onChange={(e) => setAlertThreshold(Number(e.target.value))}
-                            className="w-24 h-8 text-sm"
-                            min="0"
-                          />
+                      {/* Alert Type Selection */}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Alert Type</Label>
+                        <div className="flex space-x-4">
+                          <label className="flex items-center space-x-2">
+                            <input
+                              type="radio"
+                              value="balance"
+                              checked={alertType === 'balance'}
+                              onChange={(e) => setAlertType(e.target.value as 'balance' | 'percentage')}
+                              className="text-blue-600"
+                            />
+                            <span className="text-sm text-gray-600 dark:text-gray-400">Balance Threshold</span>
+                          </label>
+                          <label className="flex items-center space-x-2">
+                            <input
+                              type="radio"
+                              value="percentage"
+                              checked={alertType === 'percentage'}
+                              onChange={(e) => setAlertType(e.target.value as 'balance' | 'percentage')}
+                              className="text-blue-600"
+                            />
+                            <span className="text-sm text-gray-600 dark:text-gray-400">Commit Percentage</span>
+                          </label>
                         </div>
                       </div>
+
+                      {/* Balance Threshold Input */}
+                      {alertType === 'balance' && (
+                        <div className="flex items-center space-x-3">
+                          <Label htmlFor="balance-threshold" className="text-sm text-gray-600 dark:text-gray-400">
+                            We will notify you when your balance reaches:
+                          </Label>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-500">{getCoinSymbol(balance.currency_name)}</span>
+                            <Input
+                              id="balance-threshold"
+                              type="number"
+                              value={alertThreshold}
+                              onChange={(e) => setAlertThreshold(Number(e.target.value))}
+                              className="w-24 h-8 text-sm"
+                              min="0"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Percentage Threshold Input */}
+                      {alertType === 'percentage' && (
+                        <div className="flex items-center space-x-3">
+                          <Label htmlFor="percentage-threshold" className="text-sm text-gray-600 dark:text-gray-400">
+                            We will notify you when your commit usage percentage reaches:
+                          </Label>
+                          <div className="flex items-center space-x-2">
+                            <Input
+                              id="percentage-threshold"
+                              type="number"
+                              value={percentageThreshold}
+                              onChange={(e) => setPercentageThreshold(Number(e.target.value))}
+                              className="w-20 h-8 text-sm"
+                              min="1"
+                              max="100"
+                            />
+                            <span className="text-sm text-gray-500">%</span>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex items-center space-x-2">
                         <Button 
                           className="bg-transparent hover:bg-transparent dark:bg-transparent dark:hover:bg-transparent border border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 px-4 py-1.5 rounded-lg font-medium transition-all duration-200 text-sm"
