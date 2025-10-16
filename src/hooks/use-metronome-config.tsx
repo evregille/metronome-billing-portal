@@ -187,9 +187,9 @@ interface MetronomeContextType {
   rechargeBalance: (rechargeAmount: number, thresholdAmount?: number) => Promise<void>;
   updateAutoRecharge: (isEnabled?: boolean, thresholdAmount?: number, rechargeToAmount?: number) => Promise<void>;
   updateThresholdBalance: (isEnabled?: boolean, spendThresholdAmount?: number) => Promise<void>;
-  fetchInvoiceEmbeddable: (forceRefresh?: boolean) => Promise<void>;
-  fetchCommitsEmbeddable: (forceRefresh?: boolean) => Promise<void>;
-  fetchUsageEmbeddable: (forceRefresh?: boolean) => Promise<void>;
+  fetchInvoiceEmbeddable: (forceRefresh?: boolean, forceLightMode?: boolean) => Promise<void>;
+  fetchCommitsEmbeddable: (forceRefresh?: boolean, forceLightMode?: boolean) => Promise<void>;
+  fetchUsageEmbeddable: (forceRefresh?: boolean, forceLightMode?: boolean) => Promise<void>;
   createSpendAlert: (threshold: number) => Promise<void>;
   createBalanceAlert: (threshold: number) => Promise<void>;
   deleteAlert: (alertId: string) => Promise<void>;
@@ -524,7 +524,7 @@ export function MetronomeProvider({
     }
   }, [config.customer_id, config.contract_id, apiKey, invoicesCacheKey, invoices]);
 
-  const fetchInvoiceEmbeddable = useCallback(async (forceRefresh = false) => {
+  const fetchInvoiceEmbeddable = useCallback(async (forceRefresh = false, forceLightMode = false) => {
     if (!config.customer_id || !config.contract_id) return;
 
     // Create cache key for current customer/contract combination
@@ -537,11 +537,12 @@ export function MetronomeProvider({
 
     setLoadingStates(prev => ({ ...prev, invoiceEmbeddable: true }));
     try {
+      const theme = forceLightMode ? 'light' : getCurrentTheme();
       const response = await createMetronomeEmbeddableLink(
         config.customer_id,
         "invoices",
         apiKey, // This can be undefined, and backend will use env var
-        getCurrentTheme(), // Pass current theme for dark mode support
+        theme, // Pass theme (forced light or current theme)
       );
 
       if (response.status === "success") {
@@ -559,7 +560,7 @@ export function MetronomeProvider({
     }
   }, [config.customer_id, config.contract_id, apiKey, invoiceEmbeddableCacheKey, invoiceEmbeddableUrl]);
 
-  const fetchCommitsEmbeddable = useCallback(async (forceRefresh = false) => {
+  const fetchCommitsEmbeddable = useCallback(async (forceRefresh = false, forceLightMode = false) => {
     if (!config.customer_id || !config.contract_id) return;
 
     // Create cache key for current customer/contract combination
@@ -572,14 +573,14 @@ export function MetronomeProvider({
 
     setLoadingStates(prev => ({ ...prev, commitsEmbeddable: true }));
     try {
-      const currentTheme = getCurrentTheme();
-      console.log("Current theme for commits embeddable:", currentTheme);
+      const theme = forceLightMode ? 'light' : getCurrentTheme();
+      console.log("Theme for commits embeddable:", theme);
       
       const response = await createMetronomeEmbeddableLink(
         config.customer_id,
         "commits_and_credits",
         apiKey, // This can be undefined, and backend will use env var
-        currentTheme, // Pass current theme for dark mode support
+        theme, // Pass theme (forced light or current theme)
       );
 
       if (response.status === "success") {
@@ -597,7 +598,7 @@ export function MetronomeProvider({
     }
   }, [config.customer_id, config.contract_id, apiKey, commitsEmbeddableCacheKey, commitsEmbeddableUrl]);
 
-  const fetchUsageEmbeddable = useCallback(async (forceRefresh = false) => {
+  const fetchUsageEmbeddable = useCallback(async (forceRefresh = false, forceLightMode = false) => {
     console.log("fetchUsageEmbeddable called with customer_id:", config.customer_id, "contract_id:", config.contract_id);
     if (!config.customer_id || !config.contract_id) {
       console.log("No customer_id or contract_id, returning early");
@@ -616,11 +617,12 @@ export function MetronomeProvider({
     setLoadingStates(prev => ({ ...prev, usageEmbeddable: true }));
     try {
       console.log("Calling createMetronomeEmbeddableLink...");
+      const theme = forceLightMode ? 'light' : getCurrentTheme();
       const response = await createMetronomeEmbeddableLink(
         config.customer_id,
         "usage",
         apiKey, // This can be undefined, and backend will use env var
-        getCurrentTheme(), // Pass current theme for dark mode support
+        theme, // Pass theme (forced light or current theme)
       );
 
       console.log("createMetronomeEmbeddableLink response:", response);

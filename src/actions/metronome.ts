@@ -121,7 +121,7 @@ export async function createMetronomeEmbeddableLink(
             
             // Progress bar color to match cost breakdown chart
             { name: "Progress_bar" as const, value: "#f59e0b" }, // Orange/Amber
-            { name: "Progress_bar_background" as const, value: "#1f2937" }, // Card background color (like Spend card)
+            // { name: "Progress_bar_background" as const, value: "#1f2937" }, // Card background color (like Spend card)
           ]
         : undefined;
 
