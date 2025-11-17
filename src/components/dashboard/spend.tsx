@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useMetronome } from "@/hooks/use-metronome-config";
 import { formatCurrency, getCoinSymbol } from "@/lib/utils";
-import { DollarSign, Package, Bell, Trash2, Loader2, Target } from "lucide-react";
+import { DollarSign, Package, Bell, Trash2, Loader2, Target, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,7 @@ export function Spend() {
   const [alertThreshold, setAlertThreshold] = useState(1000);
   const [, setAlertEnabled] = useState(true);
   const [showSpendThresholdModal, setShowSpendThresholdModal] = useState(false);
+  const [groupValues, setGroupValues] = useState<Array<{ key: string; value: string }>>([]);
 
   useEffect(() => {
     (async () => {
@@ -44,15 +45,31 @@ export function Spend() {
     }
   }, [alerts?.spendAlert]);
 
-  // Calculate total spend from commit application totals
-  const totalSpendByCurrency: Record<string, { total: number; currency_name: string }> = (currentSpend?.commitApplicationTotals && Object.keys(currentSpend.commitApplicationTotals).length > 0) 
-                                                                                            ? currentSpend.commitApplicationTotals 
-                                                                                            : Object.fromEntries(Object.entries(currentSpend?.total || {}).map(([currency, amount]) => [
-                                                                                              currency, 
-                                                                                              { total: amount, currency_name: currency }
-                                                                                            ]));
-
-  const totalSpend: number = Object.values(totalSpendByCurrency).reduce((sum, amount) => sum + amount.total, 0);
+  // Calculate total spend grouped by currency
+  // Priority: use currentSpend.total (already grouped by currency) over commitApplicationTotals
+  const spendByCurrencyArray: Array<{ total: number; currency_name: string }> = (() => {
+    if (currentSpend?.total && Object.keys(currentSpend.total).length > 0) {
+      // Use total which is already properly grouped by currency
+      return Object.entries(currentSpend.total).map(([currency_name, total]) => ({
+        total,
+        currency_name
+      }));
+    } else if (currentSpend?.commitApplicationTotals && Object.keys(currentSpend.commitApplicationTotals).length > 0) {
+      // Fallback: Group commitApplicationTotals by currency_name and sum totals
+      const groupedByCurrency: Record<string, number> = {};
+      Object.values(currentSpend.commitApplicationTotals).forEach((entry) => {
+        const currency = entry.currency_name;
+        groupedByCurrency[currency] = (groupedByCurrency[currency] || 0) + entry.total;
+      });
+      // Convert to array format
+      return Object.entries(groupedByCurrency).map(([currency_name, total]) => ({
+        total,
+        currency_name
+      }));
+    }
+    return [];
+  })();
+  
   const productCount = currentSpend?.productTotals ? Object.keys(currentSpend.productTotals).length : 0;
   
   // Check if spend threshold configuration exists
@@ -140,8 +157,14 @@ export function Spend() {
   ];
 
   const handleCreateAlert = async () => {
-    await createSpendAlert(alertThreshold);
+    // Filter out empty group values
+    const validGroupValues = groupValues.filter(gv => gv.key.trim() !== '' && gv.value.trim() !== '');
+    const groupValuesToPass = validGroupValues.length > 0 ? validGroupValues : undefined;
+    
+    await createSpendAlert(alertThreshold, groupValuesToPass);
     setIsEditingAlert(false);
+    // Reset group values after creating alert
+    setGroupValues([]);
   };
 
   const handleDeleteAlert = async () => {
@@ -207,21 +230,27 @@ export function Spend() {
           </div>
         </div>
         <div className="text-right">
-          {Object.keys(totalSpendByCurrency).length > 0 && totalSpendByCurrency["Overages"] ? (
-            <div className="space-y-1">
-              <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                {formatCurrency(totalSpendByCurrency["Overages"].total, totalSpendByCurrency["Overages"].currency_name)}
-              </div>
+          {spendByCurrencyArray.length > 0 ? (
+            <div className="space-y-2">
+              {spendByCurrencyArray.map((currencySpend, index) => (
+                <div key={index}>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                    {formatCurrency(currencySpend.total, currencySpend.currency_name)}
+                  </div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">
+                    {currencySpend.currency_name} spend
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-              {formatCurrency(totalSpend, totalSpendByCurrency[Object.entries(totalSpendByCurrency)[0]?.[0]]?.currency_name || "USD (cents)")}
+              {formatCurrency(0, "USD (cents)")}
             </div>
           )} 
-          <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">{productCount} products</div>
           
           {/* Spend Threshold Button */}
-          <div className="flex justify-end">
+          <div className="flex justify-end mt-4">
             <Button 
               className="bg-transparent hover:bg-transparent dark:bg-transparent dark:hover:bg-transparent border border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 px-4 py-1.5 rounded-lg font-medium transition-all duration-200 text-sm"
               onClick={() => setShowSpendThresholdModal(true)}
@@ -377,7 +406,7 @@ export function Spend() {
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <h5 className="font-medium text-gray-900 dark:text-gray-100">Budget</h5>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">We will notify you if your spending reaches {formatCurrency(alerts.spendAlert.alert.threshold || 0, Object.entries(totalSpendByCurrency)[0]?.[1]?.currency_name || 'USD (Cents)')}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">We will notify you if your spending reaches {formatCurrency(alerts.spendAlert.alert.threshold || 0, spendByCurrencyArray[0]?.currency_name || 'USD (Cents)')}</p>
                 </div>
               </div>
               
@@ -399,6 +428,71 @@ export function Spend() {
                       />
                     </div>
                   </div>
+
+                  {/* Group Values Section */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Group Values (Optional)
+                      </Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setGroupValues([...groupValues, { key: '', value: '' }])}
+                        className="h-7 px-2"
+                      >
+                        <Plus className="w-3 h-3 mr-1" />
+                        Add
+                      </Button>
+                    </div>
+                    {groupValues.length > 0 && (
+                      <div className="space-y-2">
+                        {groupValues.map((groupValue, index) => (
+                          <div key={index} className="flex items-center space-x-2">
+                            <Input
+                              placeholder="Key"
+                              value={groupValue.key}
+                              onChange={(e) => {
+                                const newGroupValues = [...groupValues];
+                                newGroupValues[index].key = e.target.value;
+                                setGroupValues(newGroupValues);
+                              }}
+                              className="flex-1 h-8 text-sm"
+                            />
+                            <Input
+                              placeholder="Value"
+                              value={groupValue.value}
+                              onChange={(e) => {
+                                const newGroupValues = [...groupValues];
+                                newGroupValues[index].value = e.target.value;
+                                setGroupValues(newGroupValues);
+                              }}
+                              className="flex-1 h-8 text-sm"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const newGroupValues = groupValues.filter((_, i) => i !== index);
+                                setGroupValues(newGroupValues);
+                              }}
+                              className="h-8 w-8 p-0"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {groupValues.length === 0 && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Add optional group values to filter the alert by specific dimensions
+                      </p>
+                    )}
+                  </div>
+
                   <div className="flex items-center space-x-2">
                     <Button 
                       className="bg-transparent hover:bg-transparent dark:bg-transparent dark:hover:bg-transparent border border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 px-4 py-1.5 rounded-lg font-medium transition-all duration-200 text-sm"
@@ -406,7 +500,10 @@ export function Spend() {
                     >
                       Save Changes
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => setIsEditingAlert(false)}>
+                    <Button size="sm" variant="outline" onClick={() => {
+                      setIsEditingAlert(false);
+                      setGroupValues([]);
+                    }}>
                       Cancel
                     </Button>
                   </div>
@@ -439,7 +536,7 @@ export function Spend() {
                       Alert when spending reaches:
                     </Label>
                     <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-500">{getCoinSymbol(Object.entries(totalSpendByCurrency)[0]?.[1]?.currency_name || 'USD')}</span>
+                      <span className="text-sm text-gray-500">{getCoinSymbol(spendByCurrencyArray[0]?.currency_name || 'USD')}</span>
                       <Input
                         id="spend-threshold"
                         type="number"
@@ -450,6 +547,71 @@ export function Spend() {
                       />
                     </div>
                   </div>
+
+                  {/* Group Values Section */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Group Values (Optional)
+                      </Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setGroupValues([...groupValues, { key: '', value: '' }])}
+                        className="h-7 px-2"
+                      >
+                        <Plus className="w-3 h-3 mr-1" />
+                        Add
+                      </Button>
+                    </div>
+                    {groupValues.length > 0 && (
+                      <div className="space-y-2">
+                        {groupValues.map((groupValue, index) => (
+                          <div key={index} className="flex items-center space-x-2">
+                            <Input
+                              placeholder="Key"
+                              value={groupValue.key}
+                              onChange={(e) => {
+                                const newGroupValues = [...groupValues];
+                                newGroupValues[index].key = e.target.value;
+                                setGroupValues(newGroupValues);
+                              }}
+                              className="flex-1 h-8 text-sm"
+                            />
+                            <Input
+                              placeholder="Value"
+                              value={groupValue.value}
+                              onChange={(e) => {
+                                const newGroupValues = [...groupValues];
+                                newGroupValues[index].value = e.target.value;
+                                setGroupValues(newGroupValues);
+                              }}
+                              className="flex-1 h-8 text-sm"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const newGroupValues = groupValues.filter((_, i) => i !== index);
+                                setGroupValues(newGroupValues);
+                              }}
+                              className="h-8 w-8 p-0"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {groupValues.length === 0 && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Add optional group values to filter the alert by specific dimensions
+                      </p>
+                    )}
+                  </div>
+
                   <div className="flex items-center space-x-2">
                     <Button 
                       className="bg-transparent hover:bg-transparent dark:bg-transparent dark:hover:bg-transparent border border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 px-4 py-1.5 rounded-lg font-medium transition-all duration-200 text-sm"
@@ -457,7 +619,10 @@ export function Spend() {
                     >
                       Create Alert
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => setIsEditingAlert(false)}>
+                    <Button size="sm" variant="outline" onClick={() => {
+                      setIsEditingAlert(false);
+                      setGroupValues([]);
+                    }}>
                       Cancel
                     </Button>
                   </div>

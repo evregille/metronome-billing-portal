@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useMetronome } from "@/hooks/use-metronome-config";
-import { FileText, Loader2, Download } from "lucide-react";
+import { FileText, Loader2, Download, AlertCircle, CheckCircle, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { formatCurrency } from "@/lib/utils";
 
 export function Invoices() {
@@ -15,11 +16,21 @@ export function Invoices() {
     invoiceEmbeddableUrl, 
     fetchInvoiceEmbeddable, 
     fetchInvoices,
+    downloadInvoicePdf,
     loadingStates,
     isCustomerTransitioning
   } = useMetronome();
   
   const [showEmbeddable, setShowEmbeddable] = useState(false);
+  const [downloadModal, setDownloadModal] = useState<{
+    isOpen: boolean;
+    type: 'loading' | 'success' | 'error';
+    message: string;
+  }>({
+    isOpen: false,
+    type: 'loading',
+    message: ""
+  });
 
   useEffect(() => {
     (async () => {
@@ -99,7 +110,6 @@ export function Invoices() {
       </div>
     );
   }
-console.log("sortedInvoices", sortedInvoices);
   return (
     <div className="glass-card card-hover rounded-2xl p-6">
       <div className="flex items-center justify-between mb-6">
@@ -193,17 +203,68 @@ console.log("sortedInvoices", sortedInvoices);
                         </span>
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            // Placeholder for PDF download functionality
-                            console.log('Download PDF for invoice:', invoice);
-                          }}
-                          className="text-gray-600 hover:text-gray-800"
-                        >
-                          <Download className="w-4 h-4" />
-                        </Button>
+                        {invoice.status.toLowerCase() === 'finalized' ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              // Show loading modal immediately
+                              setDownloadModal({
+                                isOpen: true,
+                                type: 'loading',
+                                message: 'Downloading invoice PDF...'
+                              });
+
+                              try {
+                                await downloadInvoicePdf(invoice.id);
+                                
+                                // Show success message
+                                setDownloadModal({
+                                  isOpen: true,
+                                  type: 'success',
+                                  message: 'Invoice PDF downloaded successfully!'
+                                });
+
+                                // Auto-close success modal after 2 seconds
+                                setTimeout(() => {
+                                  setDownloadModal({
+                                    isOpen: false,
+                                    type: 'loading',
+                                    message: ''
+                                  });
+                                }, 2000);
+
+                              } catch (error) {
+                                console.error('Failed to download invoice PDF:', error);
+                                setDownloadModal({
+                                  isOpen: true,
+                                  type: 'error',
+                                  message: error instanceof Error ? error.message : 'Failed to download invoice PDF. Please try again.'
+                                });
+                              }
+                            }}
+                            className="text-gray-600 hover:text-gray-800"
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled
+                            onClick={() => {
+                              setDownloadModal({
+                                isOpen: true,
+                                type: 'error',
+                                message: `Invoice must be finalized to download. Current status: ${invoice.status.toUpperCase()}`
+                              });
+                            }}
+                            className="text-gray-400 cursor-not-allowed"
+                            title={`Invoice must be finalized to download. Current status: ${invoice.status.toUpperCase()}`}
+                          >
+                            <Lock className="w-4 h-4" />
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -221,6 +282,86 @@ console.log("sortedInvoices", sortedInvoices);
           )}
         </div>
       )}
+
+      {/* Download Modal */}
+      <Dialog open={downloadModal.isOpen} onOpenChange={(open) => {
+        // Prevent closing during loading state
+        if (!open && downloadModal.type !== 'loading') {
+          setDownloadModal({ isOpen: false, type: 'loading', message: "" });
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              {downloadModal.type === 'loading' && (
+                <>
+                  <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+                  <span>Downloading Invoice</span>
+                </>
+              )}
+              {downloadModal.type === 'success' && (
+                <>
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  <span>Download Complete</span>
+                </>
+              )}
+              {downloadModal.type === 'error' && (
+                <>
+                  <AlertCircle className="w-5 h-5 text-red-500" />
+                  <span>Download Error</span>
+                </>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              {downloadModal.type === 'loading' && "Please wait while we download your invoice PDF..."}
+              {downloadModal.type === 'success' && "Your invoice PDF has been downloaded successfully."}
+              {downloadModal.type === 'error' && "There was an error downloading the invoice PDF."}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {downloadModal.type === 'loading' && (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-center">
+                  <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-3" />
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{downloadModal.message}</p>
+                </div>
+              </div>
+            )}
+
+            {downloadModal.type === 'success' && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-center space-x-2">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <p className="text-sm text-green-800 font-medium">Success!</p>
+                </div>
+                <p className="text-sm text-green-700 mt-1">{downloadModal.message}</p>
+              </div>
+            )}
+
+            {downloadModal.type === 'error' && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-center space-x-2">
+                  <AlertCircle className="w-5 h-5 text-red-600" />
+                  <p className="text-sm text-red-800 font-medium">Error</p>
+                </div>
+                <p className="text-sm text-red-700 mt-1">{downloadModal.message}</p>
+              </div>
+            )}
+            
+            {downloadModal.type !== 'loading' && (
+              <div className="flex justify-end space-x-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setDownloadModal({ isOpen: false, type: 'loading', message: "" })}
+                >
+                  Close
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 

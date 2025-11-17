@@ -74,46 +74,62 @@ export function CostBreakdownChart() {
   useEffect(() => {
     if (selectedProduct && costs?.products) {
       if (selectedProduct === "All Products") {
-        // For "All Products", hide the property filter
+        // For "All Products", hide the property filter and reset it
         setAvailableProperties([]);
         setSelectedProperty("");
       } else {
+        // For specific product, show only that product's available properties
         const product = costs.products[selectedProduct];
         if (product) {
           const properties = Object.keys(product);
           setAvailableProperties(properties);
           
-          // Set default property to first one if none selected
-          if (properties.length > 0 && !selectedProperty) {
-            setSelectedProperty(properties[0]);
-          }
+          // Reset property selection when product changes
+          setSelectedProperty("");
+        } else {
+          setAvailableProperties([]);
+          setSelectedProperty("");
         }
       }
     }
-  }, [selectedProduct, costs, selectedProperty]);
+  }, [selectedProduct, costs]);
 
-  // Extract dimensions when property is selected (only for specific products)
+  // Extract dimensions based on selected product and property
   useEffect(() => {
-    if (selectedProduct && selectedProduct !== "All Products" && selectedProperty && costs?.products) {
-      const product = costs.products[selectedProduct];
-      if (product && product[selectedProperty]) {
-        const dimensionValues = product[selectedProperty];
-        const dimensionData: DimensionData[] = dimensionValues.map((value: string, index: number) => ({
-          name: value,
+    if (selectedProduct && costs?.products) {
+      if (selectedProduct === "All Products") {
+        // For "All Products", always show breakdown by product names
+        const productNames = Object.keys(costs.products);
+        const dimensionData: DimensionData[] = productNames.map((productName, index) => ({
+          name: productName,
           value: 0, // Will be calculated from items
           color: dimensionColors[index % dimensionColors.length]
         }));
         setDimensions(dimensionData);
+      } else {
+        // For specific product
+        if (selectedProperty) {
+          // If property is selected, show breakdown by that property's dimension values
+          const product = costs.products[selectedProduct];
+          if (product && product[selectedProperty]) {
+            const dimensionValues = product[selectedProperty];
+            const dimensionData: DimensionData[] = dimensionValues.map((value: string, index: number) => ({
+              name: value,
+              value: 0, // Will be calculated from items
+              color: dimensionColors[index % dimensionColors.length]
+            }));
+            setDimensions(dimensionData);
+          }
+        } else {
+          // If no property selected, show just the product total (single dimension)
+          const dimensionData: DimensionData[] = [{
+            name: selectedProduct,
+            value: 0,
+            color: dimensionColors[0]
+          }];
+          setDimensions(dimensionData);
+        }
       }
-    } else if (selectedProduct === "All Products") {
-      // For "All Products", create dimensions based on product names
-      const productNames = Object.keys(costs?.products || {});
-      const dimensionData: DimensionData[] = productNames.map((productName, index) => ({
-        name: productName,
-        value: 0, // Will be calculated from items
-        color: dimensionColors[index % dimensionColors.length]
-      }));
-      setDimensions(dimensionData);
     }
   }, [selectedProduct, selectedProperty, costs, dimensionColors]);
 
@@ -137,29 +153,59 @@ export function CostBreakdownChart() {
             chartItem[dimension.name] = item[dimension.name] || 0;
           });
         } else {
-          // For specific product, filter line items and aggregate by dimensions
-          dimensions.forEach((dimension) => {
-            // Filter line items for the selected product and aggregate by dimension
-            const filteredLineItems = item.line_items?.filter((lineItem: any) => 
-              lineItem.product_type === "UsageProductListItem" && 
-              lineItem.total >= 0 &&
-              normalizeProductName(lineItem.name) === selectedProduct
-            ) || [];
-            
-            // Aggregate by the selected property (dimension)
-            const dimensionTotal = filteredLineItems.reduce((sum: number, lineItem: any) => {
-              // Check if the line item matches the dimension value
-              if (selectedProperty) {
-                const groupValues = lineItem.pricing_group_values || lineItem.presentation_group_values || {};
-                if (groupValues[selectedProperty] === dimension.name) {
-                  return sum + lineItem.total; // Remove /100 since formatCurrency handles the conversion
+          // For specific product
+          if (selectedProperty) {
+            // If property is selected, filter line items and aggregate by dimensions
+            dimensions.forEach((dimension) => {
+              // Filter line items for the selected product and aggregate by dimension
+              const filteredLineItems = item.line_items?.filter((lineItem: any) => 
+                lineItem.product_type === "UsageProductListItem" && 
+                lineItem.total >= 0 &&
+                normalizeProductName(lineItem.name) === selectedProduct
+              ) || [];
+              
+              // Aggregate by the selected property (dimension)
+              const dimensionTotal = filteredLineItems.reduce((sum: number, lineItem: any) => {
+                // Check both pricing_group_values and presentation_group_values
+                const pricingGroupValues = lineItem.pricing_group_values || {};
+                const presentationGroupValues = lineItem.presentation_group_values || {};
+                
+                // First, try exact match with selectedProperty
+                let matchesPricing = pricingGroupValues[selectedProperty] === dimension.name;
+                let matchesPresentation = presentationGroupValues[selectedProperty] === dimension.name;
+                
+                // If exact match fails, try case-insensitive and underscore/variation matching
+                if (!matchesPricing && !matchesPresentation) {
+                  // Check all keys in groupValues for a match (handles property name variations)
+                  const allPricingKeys = Object.keys(pricingGroupValues);
+                  const allPresentationKeys = Object.keys(presentationGroupValues);
+                  
+                  // Check if any key contains the selectedProperty (case-insensitive) and value matches
+                  matchesPricing = allPricingKeys.some(key => 
+                    key.toLowerCase().includes(selectedProperty.toLowerCase()) && 
+                    pricingGroupValues[key] === dimension.name
+                  );
+                  
+                  matchesPresentation = allPresentationKeys.some(key => 
+                    key.toLowerCase().includes(selectedProperty.toLowerCase()) && 
+                    presentationGroupValues[key] === dimension.name
+                  );
                 }
-              }
-              return sum;
-            }, 0);
-            
-            chartItem[dimension.name] = dimensionTotal;
-          });
+                
+                if (matchesPricing || matchesPresentation) {
+                  return sum + lineItem.total;
+                }
+                return sum;
+              }, 0);
+              
+              chartItem[dimension.name] = dimensionTotal;
+            });
+          } else {
+            // If no property selected, show just the product total
+            dimensions.forEach((dimension) => {
+              chartItem[dimension.name] = item[dimension.name] || 0;
+            });
+          }
         }
 
         // Calculate total for this item
@@ -291,8 +337,10 @@ export function CostBreakdownChart() {
               {selectedProduct === "All Products"
                 ? 'Breakdown by Product'
                 : selectedProduct && selectedProperty 
-                  ? `${selectedProduct} by ${selectedProperty.replace(/_/g, ' ')}`
-                  : 'Daily spending trends'
+                  ? `${selectedProduct} by ${selectedProperty.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`
+                  : selectedProduct
+                    ? `${selectedProduct} - Total`
+                    : 'Daily spending trends'
               }
             </p>
           </div>
@@ -320,7 +368,7 @@ export function CostBreakdownChart() {
             </div>
           </div>
 
-          {/* Property Filter - Only show for specific products */}
+          {/* Property Filter - Only show for specific products when available */}
           {selectedProduct !== "All Products" && availableProperties.length > 0 && (
             <div className="flex flex-col space-y-1">
               <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Group by</label>
@@ -330,6 +378,7 @@ export function CostBreakdownChart() {
                   onChange={(e) => handlePropertyChange(e.target.value)}
                   className="appearance-none bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 pr-8 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 >
+                  <option value="">No grouping</option>
                   {availableProperties.map((property) => (
                     <option key={property} value={property}>
                       {property.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}

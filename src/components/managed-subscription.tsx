@@ -3,17 +3,23 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useMetronome } from "@/hooks/use-metronome-config";
-import { Package, Loader2, RefreshCw } from "lucide-react";
+import { Package, Loader2, RefreshCw, Calendar } from "lucide-react";
+import { SubscriptionQuantityChart } from "@/components/charts/subscription-quantity-chart";
+import { formatDate, localDateToUTC } from "@/lib/utils";
 
 export function ManagedSubscription() {
   const { 
     config,
     loadingStates, 
-    updateSubscriptionQuantity
+    updateSubscriptionQuantity,
+    fetchSubscriptionQuantityHistory
   } = useMetronome();
   const [updatingQuantities, setUpdatingQuantities] = useState<Set<string>>(new Set());
   const [pendingQuantities, setPendingQuantities] = useState<Record<string, number>>({});
+  const [selectedDates, setSelectedDates] = useState<Record<string, string>>({});
 
   // Get subscriptions from contract details in config
   const subscriptions = config.contract_details?.subscriptions || [];
@@ -35,17 +41,26 @@ export function ManagedSubscription() {
     setUpdatingQuantities(prev => new Set(prev).add(subscriptionId));
     
     try {
+      const selectedDate = selectedDates[subscriptionId];
+      // Convert local date to UTC before sending to Metronome
+      const utcDate = selectedDate ? localDateToUTC(selectedDate) : undefined;
       await updateSubscriptionQuantity(
         contractId,
         subscriptionId,
-        newQuantity
+        newQuantity,
+        utcDate
       );
       
-      // Clear the pending quantity after successful update
+      // Clear the pending quantity and date after successful update
       setPendingQuantities(prev => {
         const newPending = { ...prev };
         delete newPending[subscriptionId];
         return newPending;
+      });
+      setSelectedDates(prev => {
+        const newDates = { ...prev };
+        delete newDates[subscriptionId];
+        return newDates;
       });
       
     } catch (err) {
@@ -82,13 +97,7 @@ export function ManagedSubscription() {
     return sortedSchedule[0].quantity;
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
+  // formatDate is now imported from utils (displays in local time)
 
   if (loadingStates.contractDetails) {
     return (
@@ -186,7 +195,7 @@ export function ManagedSubscription() {
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Subscription Period</p>
                     <p className="text-sm">
-                      {formatDate(subscription.starting_at)} - {(subscription.ending_before) ? formatDate(subscription.ending_before) : ""}
+                      {subscription.starting_at ? formatDate(subscription.starting_at) : 'N/A'} - {(subscription.ending_before) ? formatDate(subscription.ending_before) : ""}
                     </p>
                   </div>
                   <div>
@@ -226,6 +235,47 @@ export function ManagedSubscription() {
                       </Button>
                     </div>
                   </div>
+                  
+                  {/* Optional Date Picker */}
+                  <div className="space-y-2">
+                    <Label htmlFor={`date-${subscription.id}`} className="text-sm font-medium flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      <span>Start Date (Optional)</span>
+                    </Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id={`date-${subscription.id}`}
+                        type="date"
+                        value={selectedDates[subscription.id] || ''}
+                        onChange={(e) => setSelectedDates(prev => ({
+                          ...prev,
+                          [subscription.id]: e.target.value
+                        }))}
+                        className="text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100"
+                        placeholder="Select date"
+                        disabled={updatingQuantities.has(subscription.id)}
+                      />
+                      {selectedDates[subscription.id] && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setSelectedDates(prev => {
+                            const newDates = { ...prev };
+                            delete newDates[subscription.id];
+                            return newDates;
+                          })}
+                          disabled={updatingQuantities.has(subscription.id)}
+                          className="px-2"
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Leave empty to use the default (next midnight UTC). Select a date to specify when the quantity change should take effect (will be set to 00:00:00 UTC).
+                    </p>
+                  </div>
+                  
                   <Button
                     onClick={() => handleUpdateQuantity(subscription.id, displayQuantity)}
                     disabled={updatingQuantities.has(subscription.id) || !hasChanges}
@@ -245,14 +295,17 @@ export function ManagedSubscription() {
                   </Button>
                 </div>
 
-                {subscription.quantity_schedule.length > 1 && (
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    <p className="font-medium mb-1">Quantity History:</p>
-                    {subscription.quantity_schedule.map((schedule: any, index: number) => (
-                      <div key={index} className="ml-2">
-                        {schedule.quantity} units from {formatDate(schedule.starting_at)}
-                      </div>
-                    ))}
+                
+
+                {/* Quantity History Chart */}
+                {contractId && (
+                  <div className="mt-4">
+                    <SubscriptionQuantityChart
+                      contractId={contractId}
+                      subscriptionId={subscription.id}
+                      fetchSubscriptionQuantityHistory={fetchSubscriptionQuantityHistory}
+                      quantitySchedule={subscription.quantity_schedule}
+                    />
                   </div>
                 )}
               </div>

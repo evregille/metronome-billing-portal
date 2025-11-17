@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMetronome } from "@/hooks/use-metronome-config";
-import { BarChart3, Loader2, TrendingUp, Send, Calculator, Edit3 } from "lucide-react";
+import { BarChart3, Loader2, TrendingUp, Send, Calculator } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -101,7 +101,7 @@ export function Usage() {
             variant="outline"
             size="sm"
             onClick={() => setShowUsageDataModal(true)}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white hover:text-white border-0"
+            className="bg-green-800 hover:bg-green-900 text-white border-0"
           >
             <Send className="w-4 h-4 mr-2" />
             Send Usage Data

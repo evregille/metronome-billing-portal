@@ -14,17 +14,20 @@ type ApiResponse<T> =
   | { status: "success"; result: T  ; rawData?: any }
   | { status: "error"; message?: string };
 type BalanceResult = {
-  total_granted: number;
-  total_used: number;
-  currency_name: string;
-  currency_id: string;
-  processed_grants: Array<{
-    id: string;
-    type: string;
-    product_name: string;
-    granted: number;
-    used: number;
-    remaining: number;
+  balances_by_currency: Array<{
+    currency_name: string;
+    currency_id: string;
+    total_granted: number;
+    total_used: number;
+    total_remaining: number;
+    processed_grants: Array<{
+      id: string;
+      type: string;
+      product_name: string;
+      granted: number;
+      used: number;
+      remaining: number;
+    }>;
   }>;
 };
 
@@ -76,6 +79,7 @@ type AlertsResult = {
 
 // Add this type definition near the other types
 type InvoiceListItem = {
+  id: string;
   start_timestamp: string;
   end_timestamp: string;
   total: number;
@@ -165,9 +169,29 @@ export async function fetchMetronomeCustomerBalance(
       filteredData = response.data.filter((grant) => grant.contract?.id === contract_id);
     }
 
-    let total_granted = 0;
-    let total_used = 0;
-    const processed_grants = filteredData.map((grant) => {
+    // Group grants by currency
+    const grantsByCurrency = new Map<string, {
+      currency_name: string;
+      currency_id: string;
+      grants: Array<{
+        id: string;
+        type: string;
+        product_name: string;
+        granted: number;
+        used: number;
+        remaining: number;
+        starting_at?: string;
+      }>;
+    }>();
+
+    filteredData.forEach((grant) => {
+      // Get currency information from the grant
+      const currency_name = grant.access_schedule?.credit_type?.name || "USD";
+      const currency_id = grant.access_schedule?.credit_type?.id || "2714e483-4ff1-48e4-9e25-ac732e8f24f2";
+      
+      // Create a key for the currency
+      const currencyKey = `${currency_id}_${currency_name}`;
+
       // Calculate total granted for this item
       const granted = grant.access_schedule?.schedule_items
         ? grant.access_schedule.schedule_items.reduce(
@@ -184,27 +208,49 @@ export async function fetchMetronomeCustomerBalance(
           )
         : 0;
 
-      total_granted += granted;
-      total_used += used;
+      // Add grant to the appropriate currency group
+      if (!grantsByCurrency.has(currencyKey)) {
+        grantsByCurrency.set(currencyKey, {
+          currency_name,
+          currency_id,
+          grants: [],
+        });
+      }
 
-      return {
+      grantsByCurrency.get(currencyKey)!.grants.push({
         id: grant.id,
         type: grant.type,
         product_name: grant.name || grant.product.name,
         granted,
         used,
         remaining: granted - used,
+      });
+    });
+
+    // Calculate totals per currency and build the result
+    // Only include grants that have started (starting_at <= current UTC date)
+    const nowUTC = new Date();
+    nowUTC.setUTCHours(0, 0, 0, 0); // Set to UTC midnight for date comparison
+    
+    const balances_by_currency = Array.from(grantsByCurrency.values()).map((currencyGroup) => {
+      const total_granted = currencyGroup.grants.reduce((sum, grant) => sum + grant.granted, 0);
+      const total_used = currencyGroup.grants.reduce((sum, grant) => sum + grant.used, 0);
+      const total_remaining = total_granted - total_used;
+
+      return {
+        currency_name: currencyGroup.currency_name,
+        currency_id: currencyGroup.currency_id,
+        total_granted,
+        total_used,
+        total_remaining,
+        processed_grants: currencyGroup.grants,
       };
     });
 
     return {
       status: "success",
       result: { 
-        total_granted, 
-        total_used, 
-        processed_grants, 
-        currency_name: filteredData[0]?.access_schedule?.credit_type?.name || "USD",
-        currency_id: filteredData[0]?.access_schedule?.credit_type?.id || "2714e483-4ff1-48e4-9e25-ac732e8f24f2",
+        balances_by_currency,
       },
     };
   } catch (error) {
@@ -248,7 +294,6 @@ export async function fetchMetronomeInvoiceBreakdown(
     const usageData = data.filter((el) => el.type === "USAGE");
     
     const costsData = retrieveCost(usageData);
-    
     return {
       status: "success",
       result: {
@@ -309,17 +354,25 @@ export async function createCustomerSpendAlert(
   customer_id: string,
   threshold: number,
   api_key?: string,
+  groupValues?: Array<{ key: string; value: string }>,
 ): Promise<ApiResponse<any>> {
   try {
     const client = getMetronomeClient(api_key);
-    const response = await client.v1.alerts.create({
+    const alertPayload: any = {
       customer_id: customer_id,
       alert_type: "spend_threshold_reached",
       name: CUSTOM_SPEND_THRESHOLD_ALERT_NAME,
       evaluate_on_create: true,
       threshold: threshold*100,
       credit_type_id: '2714e483-4ff1-48e4-9e25-ac732e8f24f2' // USD
-    });
+    };
+    
+    // Add group_values if provided
+    if (groupValues && groupValues.length > 0) {
+      alertPayload.group_values = groupValues;
+    }
+    
+    const response = await client.v1.alerts.create(alertPayload);
     return { status: "success", result: response.data };
   } catch (error) {
     return {
@@ -333,17 +386,25 @@ export async function createCustomerBalanceAlert(
   customer_id: string,
   threshold: number,
   api_key?: string,
+  groupValues?: Array<{ key: string; value: string }>,
 ): Promise<ApiResponse<any>> {
   try {
     const client = getMetronomeClient(api_key);
-    const response = await client.v1.alerts.create({
+    const alertPayload: any = {
       customer_id: customer_id,
       alert_type: "low_remaining_contract_credit_and_commit_balance_reached",
       name: CUSTOM_BALANCE_ALERT_NAME,
       evaluate_on_create: true,
       threshold: threshold*100,
       credit_type_id: '2714e483-4ff1-48e4-9e25-ac732e8f24f2' // USD
-    });
+    };
+    
+    // Add group_values if provided
+    if (groupValues && groupValues.length > 0) {
+      alertPayload.group_values = groupValues;
+    }
+    
+    const response = await client.v1.alerts.create(alertPayload);
     return { status: "success", result: response.data };
   } catch (error) {
     return {
@@ -357,17 +418,25 @@ export async function createCustomerCommitPercentageAlert(
   customer_id: string,
   percentage: number,
   api_key?: string,
+  groupValues?: Array<{ key: string; value: string }>,
 ): Promise<ApiResponse<any>> {
   try {
     const client = getMetronomeClient(api_key);
-    const response = await client.v1.alerts.create({
+    const alertPayload: any = {
       customer_id: customer_id,
       alert_type: "low_remaining_commit_percentage_reached",
       name: `Commit Percentage Alert - ${percentage}%`,
       evaluate_on_create: true,
       threshold: percentage,
       credit_type_id: '2714e483-4ff1-48e4-9e25-ac732e8f24f2' // USD - same as balance alert
-    });
+    };
+    
+    // Add group_values if provided
+    if (groupValues && groupValues.length > 0) {
+      alertPayload.group_values = groupValues;
+    }
+    
+    const response = await client.v1.alerts.create(alertPayload);
     return { status: "success", result: response.data };
   } catch (error) {
     return {
@@ -525,6 +594,7 @@ export async function fetchCustomerInvoices(
     });
 
     const invoices: InvoiceListItem[] = response.data.map((invoice: any) => ({
+      id: invoice.id,
       start_timestamp: invoice.start_timestamp,
       end_timestamp: invoice.end_timestamp,
       total: invoice.total,
@@ -858,7 +928,7 @@ export async function sendUsageData(
       properties: properties || {},
     };
     
-    await client.v1.usage.ingest([usagePayload]);
+    await client.v1.usage.ingest({usage: [usagePayload]});
     
     return {
       status: "success",
@@ -1044,18 +1114,33 @@ export async function updateSubscriptionQuantity(
   subscription_id: string,
   new_quantity: number,
   api_key?: string,
+  starting_at?: string,
 ): Promise<ApiResponse<any>> {
   try {
     const client = getMetronomeClient(api_key);
     
-    // Calculate midnight-aligned date for starting_at
-    const now = new Date();
-    const midnightAligned = new Date(now);
-    midnightAligned.setUTCHours(0, 0, 0, 0);
-    
-    // If the current time is past midnight, use next midnight
-    if (now.getTime() > midnightAligned.getTime()) {
-      midnightAligned.setUTCDate(midnightAligned.getUTCDate() + 1);
+    // Use provided starting_at or calculate midnight-aligned date
+    // starting_at should already be in UTC format (YYYY-MM-DDTHH:mm:ss.sssZ)
+    let startingAtDate: string;
+    if (starting_at) {
+      // starting_at is already in UTC format from localDateToUTC conversion
+      // Ensure it's a valid ISO string
+      const date = new Date(starting_at);
+      if (isNaN(date.getTime())) {
+        throw new Error("Invalid date format");
+      }
+      startingAtDate = date.toISOString();
+    } else {
+      // Calculate midnight-aligned date for starting_at (UTC)
+      const now = new Date();
+      const midnightAligned = new Date(now);
+      midnightAligned.setUTCHours(0, 0, 0, 0);
+      
+      // If the current time is past midnight, use next midnight
+      if (now.getTime() > midnightAligned.getTime()) {
+        midnightAligned.setUTCDate(midnightAligned.getUTCDate() + 1);
+      }
+      startingAtDate = midnightAligned.toISOString();
     }
     
     const updatePayload = {
@@ -1066,7 +1151,7 @@ export async function updateSubscriptionQuantity(
           subscription_id: subscription_id,
           quantity_updates: [
             {
-              starting_at: midnightAligned.toISOString(),
+              starting_at: startingAtDate,
               quantity: new_quantity,
             },
           ],
@@ -1085,6 +1170,34 @@ export async function updateSubscriptionQuantity(
     return {
       status: "error",
       message: error instanceof Error ? error.message : "Unknown error occurred while updating subscription quantity",
+    };
+  }
+}
+
+export async function fetchSubscriptionQuantityHistory(
+  customer_id: string,
+  contract_id: string,
+  subscription_id: string,
+  api_key?: string,
+): Promise<ApiResponse<any>> {
+  try {
+    const client = getMetronomeClient(api_key);
+    
+    const response = await client.v1.contracts.retrieveSubscriptionQuantityHistory({
+      contract_id: contract_id,
+      customer_id: customer_id,
+      subscription_id: subscription_id,
+    });
+    console.log("Subscription quantity history response:", response.data);
+    return {
+      status: "success",
+      result: response.data,
+    };
+  } catch (error) {
+    console.error("Error fetching subscription quantity history:", error);
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Unknown error occurred while fetching subscription quantity history",
     };
   }
 }
@@ -1266,6 +1379,54 @@ export async function updateThresholdBalance(
     return {
       status: "error",
       message: error instanceof Error ? error.message : "Unknown error occurred while updating spend threshold",
+    };
+  }
+}
+
+export async function downloadInvoicePdf(
+  customer_id: string,
+  invoice_id: string,
+  api_key?: string,
+): Promise<ApiResponse<Blob>> {
+  try {
+    const client = getMetronomeClient(api_key);
+    
+    // First retrieve the invoice to get the PDF URL
+    const invoiceResponse = await client.v1.customers.invoices.retrieve({
+      customer_id: customer_id,
+      invoice_id: invoice_id,
+    });
+
+    const invoice = invoiceResponse.data;
+    
+    // Check if the invoice has a PDF URL
+    if (!invoice.external_invoice?.pdf_url) {
+      return {
+        status: "error",
+        message: "PDF URL not available for this invoice",
+      };
+    }
+
+    // Fetch the PDF from the URL
+    const pdfResponse = await fetch(invoice.external_invoice.pdf_url);
+    if (!pdfResponse.ok) {
+      return {
+        status: "error",
+        message: `Failed to download PDF: ${pdfResponse.statusText}`,
+      };
+    }
+
+    const pdfBlob = await pdfResponse.blob();
+
+    return {
+      status: "success",
+      result: pdfBlob,
+    };
+  } catch (error) {
+    console.error("Error downloading invoice PDF:", error);
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Unknown error occurred while downloading invoice PDF",
     };
   }
 }

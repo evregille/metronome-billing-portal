@@ -73,22 +73,31 @@ export function Balance() {
     }
   }, [alerts?.balanceAlert, alerts?.commitPercentageAlert]);
 
-  // Calculate percentage of balance used
-  const calculateUsagePercentage = () => {
-    if (!balance) return 0;
-    const percentage = (balance.total_used / balance.total_granted) * 100;
+  // Get primary currency (first currency) for use in alerts and recharge modals
+  const getPrimaryCurrency = () => {
+    if (!balance || balance.balances_by_currency.length === 0) {
+      return { currency_name: "USD", currency_id: "2714e483-4ff1-48e4-9e25-ac732e8f24f2" };
+    }
+    return {
+      currency_name: balance.balances_by_currency[0].currency_name,
+      currency_id: balance.balances_by_currency[0].currency_id,
+    };
+  };
+
+  // Calculate percentage of balance used for a specific currency
+  const calculateUsagePercentage = (currencyBalance: NonNullable<typeof balance>['balances_by_currency'][0]) => {
+    if (!currencyBalance || currencyBalance.total_granted === 0) return 0;
+    const percentage = (currencyBalance.total_used / currencyBalance.total_granted) * 100;
     return Math.min(percentage, 100);
   };
 
-  const getUsageColor = () => {
-    const percentage = calculateUsagePercentage();
+  const getUsageColor = (percentage: number) => {
     if (percentage >= 90) return "text-yellow-600";
     if (percentage >= 75) return "text-yellow-600";
     return "text-green-600";
   };
 
-  const getUsageBarColor = () => {
-    const percentage = calculateUsagePercentage();
+  const getUsageBarColor = (percentage: number) => {
     if (percentage >= 90) return "bg-yellow-500";
     if (percentage >= 75) return "bg-yellow-500";
     return "bg-green-500";
@@ -118,7 +127,7 @@ export function Balance() {
         success: true,
         message: threshold 
           ? "Auto recharge configured successfully! Your balance will be automatically recharged when it falls below the threshold."
-          : `Successfully recharged ${formatCurrency(amount, balance?.currency_name || "USD")} to your account.`
+          : `Successfully recharged ${formatCurrency(amount, getPrimaryCurrency().currency_name)} to your account.`
       };
     } catch (error) {
       // The error message from the hook should already be user-friendly
@@ -205,16 +214,30 @@ export function Balance() {
           </div>
         </div>
         <div className="text-right">
-          <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-            {balance 
-              ? formatCurrency(balance.total_granted - balance.total_used, balance.currency_name)
-              : formatCurrency(0, "USD")
-            }
-          </div>
-          <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">remaining</div>
+          {balance && balance.balances_by_currency.length > 0 ? (
+            <div className="space-y-2">
+              {balance.balances_by_currency.map((currencyBalance) => (
+                <div key={currencyBalance.currency_id}>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                    {formatCurrency(currencyBalance.total_remaining, currencyBalance.currency_name)}
+                  </div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">
+                    {currencyBalance.currency_name} remaining
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <>
+              <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                {formatCurrency(0, "USD")}
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">remaining</div>
+            </>
+          )}
 
           {/* Recharge Buttons - Always visible */}
-          <div className="flex space-x-2">
+          <div className="flex space-x-2 mt-4">
             <Button 
               className="bg-transparent hover:bg-transparent dark:bg-transparent dark:hover:bg-transparent border border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 px-4 py-1.5 rounded-lg font-medium transition-all duration-200 text-sm"
               onClick={() => setShowRechargeModal(true)}
@@ -274,105 +297,98 @@ export function Balance() {
         // Show balance details
         balance ? (
           <div className="space-y-6 flex-1 min-h-96">
-            {/* Overall Usage */}
-            {balance.total_granted > 0 && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Overall Usage</span>
-                  <span className={`text-sm font-semibold ${getUsageColor()}`}>
-                    {calculateUsagePercentage().toFixed(1)}%
-                  </span>
+            
+
+            {/* Single Commits Breakdown section showing all commits grouped by currency */}
+            {balance.balances_by_currency.some(cb => cb.processed_grants.length > 0) && (
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <div className="w-5 h-5 bg-gray-600 rounded flex items-center justify-center">
+                    <Package className="w-3 h-3 text-white" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Commits Breakdown</h3>
                 </div>
-                
-                <div className="w-full bg-gray-200 rounded-full h-3">
-                  <div
-                    className={`${getUsageBarColor()} h-3 rounded-full transition-all duration-300`}
-                    style={{ width: `${Math.min(calculateUsagePercentage(), 100)}%` }}
-                  ></div>
-                </div>
-                
-                <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                  <span>{formatCurrency(balance.total_used, balance.currency_name)} used</span>
-                  <span>{formatCurrency(balance.total_granted, balance.currency_name)} granted</span>
+                <div className="space-y-6">
+                  {balance.balances_by_currency.map((currencyBalance) => (
+                    currencyBalance.processed_grants.length > 0 && (
+                      <div key={currencyBalance.currency_id} className="space-y-4">
+                        {balance.balances_by_currency.length > 1 && (
+                          <div className="text-sm font-medium text-gray-700 dark:text-gray-300 pb-2 border-b border-gray-200 dark:border-gray-700">
+                            {currencyBalance.currency_name}
+                          </div>
+                        )}
+                        <div className="space-y-4">
+                          {currencyBalance.processed_grants.map((grant) => {
+                            const usagePercentage = grant.granted > 0 ? (grant.used / grant.granted) * 100 : 0;
+                            const isFullyUsed = usagePercentage >= 100;
+                            
+                            return (
+                              <div key={grant.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                                {/* Header */}
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="flex items-center space-x-3">
+                                    <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                                      <CheckCircle className="w-4 h-4 text-white" />
+                                    </div>
+                                    <div>
+                                      <p className="font-semibold text-gray-900 dark:text-gray-100">{grant.product_name}</p>
+                                      <p className="text-sm text-gray-500">Type: {grant.type.toUpperCase()}</p>
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className={`text-lg font-semibold ${isFullyUsed ? 'text-green-500' : 'text-green-500'}`}>
+                                      {formatCurrency(grant.remaining, currencyBalance.currency_name)} remaining
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {/* Usage Section */}
+                                {grant.granted > 0 && (
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-sm font-medium text-gray-700">Usage</span>
+                                      <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                        {usagePercentage.toFixed(1)}%
+                                      </span>
+                                    </div>
+                                    
+                                    {/* Progress Bar */}
+                                    <div className="w-full bg-gray-200 rounded-full h-3">
+                                      <div
+                                        className="bg-green-500 h-3 rounded-full transition-all duration-300"
+                                        style={{ width: `${Math.min(usagePercentage, 100)}%` }}
+                                      ></div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Financial Breakdown */}
+                                <div className="flex justify-between mt-3 pt-3 border-t border-gray-100">
+                                  <div className="text-center">
+                                    <p className="text-sm text-gray-500">Granted</p>
+                                    <p className="font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(grant.granted, currencyBalance.currency_name)}</p>
+                                  </div>
+                                  <div className="text-center">
+                                    <p className="text-sm text-gray-500">Used</p>
+                                    <p className="font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(grant.used, currencyBalance.currency_name)}</p>
+                                  </div>
+                                  <div className="text-center">
+                                    <p className="text-sm text-gray-500">Remaining</p>
+                                    <p className={`font-semibold ${isFullyUsed ? 'text-green-500' : 'text-green-500'}`}>
+                                      {formatCurrency(grant.remaining, currencyBalance.currency_name)}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )
+                  ))}
                 </div>
               </div>
             )}
-
-            {/* Commits Breakdown */}
-            <div className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <div className="w-5 h-5 bg-gray-600 rounded flex items-center justify-center">
-                  <Package className="w-3 h-3 text-white" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Commits Breakdown</h3>
-              </div>
-              <div className="space-y-4">
-                {balance.processed_grants.map((grant) => {
-                  const usagePercentage = grant.granted > 0 ? (grant.used / grant.granted) * 100 : 0;
-                  const isFullyUsed = usagePercentage >= 100;
-                  
-                  return (
-                    <div key={grant.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                      {/* Header */}
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                            <CheckCircle className="w-4 h-4 text-white" />
-                          </div>
-                          <div>
-                            <p className="font-semibold text-gray-900 dark:text-gray-100">{grant.product_name}</p>
-                            <p className="text-sm text-gray-500">Type: {grant.type.toUpperCase()}</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className={`text-lg font-semibold ${isFullyUsed ? 'text-green-500' : 'text-green-500'}`}>
-                            {formatCurrency(grant.remaining, balance.currency_name)} remaining
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Usage Section */}
-                      {grant.granted > 0 && (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-gray-700">Usage</span>
-                            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                              {usagePercentage.toFixed(1)}%
-                            </span>
-                          </div>
-                          
-                          {/* Progress Bar */}
-                          <div className="w-full bg-gray-200 rounded-full h-3">
-                            <div
-                              className="bg-green-500 h-3 rounded-full transition-all duration-300"
-                              style={{ width: `${Math.min(usagePercentage, 100)}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Financial Breakdown */}
-                      <div className="flex justify-between mt-3 pt-3 border-t border-gray-100">
-                        <div className="text-center">
-                          <p className="text-sm text-gray-500">Granted</p>
-                          <p className="font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(grant.granted, balance.currency_name)}</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-sm text-gray-500">Used</p>
-                          <p className="font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(grant.used, balance.currency_name)}</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-sm text-gray-500">Remaining</p>
-                          <p className={`font-semibold ${isFullyUsed ? 'text-green-500' : 'text-green-500'}`}>
-                            {formatCurrency(grant.remaining, balance.currency_name)}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
 
             {/* Balance Alerts Configuration */}
             <div className="border-t border-gray-200 pt-6">
@@ -404,7 +420,7 @@ export function Balance() {
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <h5 className="font-medium text-gray-900 dark:text-gray-100">Low Balance Notification</h5>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">We will notify if your balance reaches below {formatCurrency(alerts.balanceAlert.alert.threshold || 0, balance.currency_name)}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">We will notify if your balance reaches below {formatCurrency(alerts.balanceAlert.alert.threshold || 0, getPrimaryCurrency().currency_name)}</p>
                     </div>
                   </div>
                 </div>
@@ -471,7 +487,7 @@ export function Balance() {
                             We will notify you when your balance reaches:
                           </Label>
                           <div className="flex items-center space-x-2">
-                            <span className="text-sm text-gray-500">{getCoinSymbol(balance.currency_name)}</span>
+                            <span className="text-sm text-gray-500">{getCoinSymbol(getPrimaryCurrency().currency_name)}</span>
                             <Input
                               id="balance-threshold"
                               type="number"
@@ -553,8 +569,8 @@ export function Balance() {
         isOpen={showRechargeModal}
         onClose={() => setShowRechargeModal(false)}
         onRecharge={handleRecharge}
-        currencyName={balance?.currency_name || "USD"}
-        currentBalance={balance ? balance.total_granted - balance.total_used : 0}
+        currencyName={getPrimaryCurrency().currency_name}
+        currentBalance={balance && balance.balances_by_currency.length > 0 ? balance.balances_by_currency[0].total_remaining : 0}
         rechargeProductId={rechargeProductId}
       />
 
@@ -564,8 +580,8 @@ export function Balance() {
         onClose={() => setShowAutoRechargeModal(false)}
         onRecharge={handleRecharge}
         onUpdateAutoRecharge={handleUpdateAutoRecharge}
-        currencyName={balance?.currency_name || "USD"}
-        currentBalance={balance ? balance.total_granted - balance.total_used : 0}
+        currencyName={getPrimaryCurrency().currency_name}
+        currentBalance={balance && balance.balances_by_currency.length > 0 ? balance.balances_by_currency[0].total_remaining : 0}
         rechargeProductId={rechargeProductId}
         isAutoRecharge={true}
         existingAutoRecharge={autoRechargeConfig}

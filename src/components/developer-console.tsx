@@ -29,6 +29,7 @@ export function DeveloperConsole() {
     fetchUsageEmbeddable
   } = useMetronome();
   const [activeTab, setActiveTab] = useState("customer");
+  const [hiddenTabs, setHiddenTabs] = useState<Set<string>>(new Set());
 
   const tabs: Tab[] = [
     {
@@ -263,7 +264,7 @@ export function DeveloperConsole() {
               </p>
             </div>
           </div>
-        ) : activeTabData?.hasData ? (
+        ) : activeTabData?.hasData && !hiddenTabs.has(activeTabData.id) ? (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -312,14 +313,36 @@ export function DeveloperConsole() {
               </svg>
             </div>
             <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
-              No {activeTabData?.label} data available
+              {hiddenTabs.has(activeTabData?.id || "") ? 
+                `${activeTabData?.label} data has been reset` : 
+                `No ${activeTabData?.label} data available`
+              }
             </h4>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {activeTabData?.id === "customer" && "Select a customer to view details"}
-              {activeTabData?.id === "contract" && "Select a contract to view details"}
-              {activeTabData?.id === "invoice" && "Fetch current spend to view invoice data"}
-              {activeTabData?.id === "invoice-breakdown" && "Fetch costs to view invoice breakdown data"}
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              {hiddenTabs.has(activeTabData?.id || "") ? 
+                "The response data has been cleared. Click 'Restore' to show it again." :
+                (activeTabData?.id === "customer" && "Select a customer to view details") ||
+                (activeTabData?.id === "contract" && "Select a contract to view details") ||
+                (activeTabData?.id === "invoice" && "Fetch current spend to view invoice data") ||
+                (activeTabData?.id === "invoice-breakdown" && "Fetch costs to view invoice breakdown data")
+              }
             </p>
+            {hiddenTabs.has(activeTabData?.id || "") && (
+              <button
+                onClick={() => {
+                  if (activeTabData?.id) {
+                    setHiddenTabs(prev => {
+                      const newSet = new Set(prev);
+                      newSet.delete(activeTabData.id);
+                      return newSet;
+                    });
+                  }
+                }}
+                className="text-xs bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-3 py-1 rounded transition-colors"
+              >
+                Restore Data
+              </button>
+            )}
           </div>
         )}
       </div>

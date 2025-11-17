@@ -26,8 +26,10 @@ import {
   sendUsageData as sendUsageDataAction,
   previewEvents as previewEventsAction,
   updateSubscriptionQuantity as updateSubscriptionQuantityAction,
+  fetchSubscriptionQuantityHistory as fetchSubscriptionQuantityHistoryAction,
   retrieveContractDetails as retrieveContractDetailsAction,
   fetchCustomerDetails as fetchCustomerDetailsAction,
+  downloadInvoicePdf as downloadInvoicePdfAction,
 } from "@/actions/metronome";
 
 // Utility function to detect current theme
@@ -52,17 +54,20 @@ interface MetronomeConfig {
 }
 
 interface Balance {
-  total_granted: number;
-  total_used: number;
-  currency_name: string;
-  currency_id: string;
-  processed_grants: Array<{
-    id: string;
-    type: string;
-    product_name: string;
-    granted: number;
-    used: number;
-    remaining: number;
+  balances_by_currency: Array<{
+    currency_name: string;
+    currency_id: string;
+    total_granted: number;
+    total_used: number;
+    total_remaining: number;
+    processed_grants: Array<{
+      id: string;
+      type: string;
+      product_name: string;
+      granted: number;
+      used: number;
+      remaining: number;
+    }>;
   }>;
 }
 
@@ -98,6 +103,7 @@ interface CurrentSpend {
 }
 
 interface InvoiceListItem {
+  id: string;
   start_timestamp: string;
   end_timestamp: string;
   total: number;
@@ -182,19 +188,21 @@ interface MetronomeContextType {
   fetchCurrentSpend: () => Promise<void>;
   fetchAlerts: () => Promise<void>;
   fetchInvoices: (forceRefresh?: boolean) => Promise<void>;
+  downloadInvoicePdf: (invoiceId: string) => Promise<void>;
   fetchRawUsageData: (forceRefresh?: boolean) => Promise<void>;
   fetchCustomerDetails: () => Promise<void>;
   fetchContractDetails: () => Promise<void>;
-  updateSubscriptionQuantity: (contractId: string, subscriptionId: string, newQuantity: number) => Promise<void>;
+  updateSubscriptionQuantity: (contractId: string, subscriptionId: string, newQuantity: number, startingAt?: string) => Promise<void>;
+  fetchSubscriptionQuantityHistory: (contractId: string, subscriptionId: string) => Promise<any>;
   rechargeBalance: (rechargeAmount: number, thresholdAmount?: number) => Promise<void>;
   updateAutoRecharge: (isEnabled?: boolean, thresholdAmount?: number, rechargeToAmount?: number) => Promise<void>;
   updateThresholdBalance: (isEnabled?: boolean, spendThresholdAmount?: number) => Promise<void>;
   fetchInvoiceEmbeddable: (forceRefresh?: boolean, forceLightMode?: boolean) => Promise<void>;
   fetchCommitsEmbeddable: (forceRefresh?: boolean, forceLightMode?: boolean) => Promise<void>;
   fetchUsageEmbeddable: (forceRefresh?: boolean, forceLightMode?: boolean) => Promise<void>;
-  createSpendAlert: (threshold: number) => Promise<void>;
-  createBalanceAlert: (threshold: number) => Promise<void>;
-  createCommitPercentageAlert: (percentage: number) => Promise<void>;
+  createSpendAlert: (threshold: number, groupValues?: Array<{ key: string; value: string }>) => Promise<void>;
+  createBalanceAlert: (threshold: number, groupValues?: Array<{ key: string; value: string }>) => Promise<void>;
+  createCommitPercentageAlert: (percentage: number, groupValues?: Array<{ key: string; value: string }>) => Promise<void>;
   deleteAlert: (alertId: string) => Promise<void>;
   fetchBillableMetric: (billableMetricId: string) => Promise<any>;
   sendUsageData: (event_type: string, properties:  Record<string, any>, timestamp: string) => Promise<any>;
@@ -527,6 +535,35 @@ export function MetronomeProvider({
     }
   }, [config.customer_id, config.contract_id, apiKey, invoicesCacheKey, invoices]);
 
+  const downloadInvoicePdf = useCallback(async (invoiceId: string) => {
+    if (!config.customer_id) return;
+
+    try {
+      const response = await downloadInvoicePdfAction(
+        config.customer_id,
+        invoiceId,
+        apiKey, // This can be undefined, and backend will use env var
+      );
+
+      if (response.status === "success") {
+        // Create a blob URL and trigger download
+        const blob = response.result;
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `invoice-${invoiceId}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      } else {
+        throw new Error(response.message || "Failed to download invoice PDF");
+      }
+    } catch (error) {
+      throw error;
+    }
+  }, [config.customer_id, apiKey]);
+
   const fetchInvoiceEmbeddable = useCallback(async (forceRefresh = false, forceLightMode = false) => {
     if (!config.customer_id || !config.contract_id) return;
 
@@ -750,7 +787,7 @@ export function MetronomeProvider({
   }, [config.customer_id, config.contract_id, customerId, contractId, fetchBalance, fetchCurrentSpend, fetchAlerts, fetchCustomerDetails, fetchContractDetails]);
 
 
-  const updateSubscriptionQuantity = useCallback(async (contractId: string, subscriptionId: string, newQuantity: number) => {
+  const updateSubscriptionQuantity = useCallback(async (contractId: string, subscriptionId: string, newQuantity: number, startingAt?: string) => {
     if (!config.customer_id) return;
 
     try {
@@ -760,6 +797,7 @@ export function MetronomeProvider({
         subscriptionId,
         newQuantity,
         apiKey, // This can be undefined, and backend will use env var
+        startingAt,
       );
 
       if (response.status === "success") {
@@ -775,6 +813,32 @@ export function MetronomeProvider({
     }
   }, [config.customer_id, apiKey, fetchContractDetails]);
 
+  const fetchSubscriptionQuantityHistory = useCallback(async (contractId: string, subscriptionId: string) => {
+    if (!config.customer_id) {
+      throw new Error("Customer ID is required");
+    }
+
+    try {
+      const response = await fetchSubscriptionQuantityHistoryAction(
+        config.customer_id,
+        contractId,
+        subscriptionId,
+        apiKey, // This can be undefined, and backend will use env var
+      );
+
+      if (response.status === "success") {
+        console.log("Subscription quantity history response:", response.result);
+        return response.result;
+      } else {
+        console.error("Failed to fetch subscription quantity history:", response.message);
+        throw new Error(response.message || "Failed to fetch subscription quantity history");
+      }
+    } catch (error) {
+      console.error("Error fetching subscription quantity history:", error);
+      throw error;
+    }
+  }, [config.customer_id, apiKey]);
+
   const rechargeBalance = useCallback(async (rechargeAmount: number, thresholdAmount?: number) => {
     try {
       // Check if balance data is available
@@ -782,9 +846,13 @@ export function MetronomeProvider({
         throw new Error("Balance information is not available. Please refresh the page and try again.");
       }
 
-      // Check if currency_id is available in balance
-      if (!balance.currency_id) {
+      // Get currency_id from the first currency (primary currency)
+      if (!balance.balances_by_currency || balance.balances_by_currency.length === 0) {
         throw new Error("Currency information is not available in your balance data. Please ensure your account has proper currency configuration.");
+      }
+      const currencyId = balance.balances_by_currency[0].currency_id;
+      if (!currencyId) {
+        throw new Error("Currency ID is not available. Please refresh the page and try again.");
       }
 
       // Check if recharge product ID is configured
@@ -795,7 +863,7 @@ export function MetronomeProvider({
       const response = await rechargeBalanceAction(
         config.customer_id,
         rechargeAmount,
-        balance.currency_id,
+        currencyId,
         rechargeProductId, // Pass the recharge product ID from settings
         config.contract_details, // Pass contract details to avoid listing contracts
         thresholdAmount, // Pass threshold for auto recharge
@@ -878,7 +946,7 @@ export function MetronomeProvider({
     }
   }, [config.customer_id, config.contract_id, apiKey, fetchContractDetails, fetchCurrentSpend]);
 
-  const createSpendAlert = useCallback(async (threshold: number) => {
+  const createSpendAlert = useCallback(async (threshold: number, groupValues?: Array<{ key: string; value: string }>) => {
     if (!config.customer_id) return;
 
     try {
@@ -886,6 +954,7 @@ export function MetronomeProvider({
         config.customer_id,
         threshold,
         apiKey, // This can be undefined, and backend will use env var
+        groupValues,
       );
 
       if (response.status === "success") {
@@ -899,7 +968,7 @@ export function MetronomeProvider({
     }
   }, [config.customer_id, apiKey, fetchAlerts]);
 
-  const createBalanceAlert = useCallback(async (threshold: number) => {
+  const createBalanceAlert = useCallback(async (threshold: number, groupValues?: Array<{ key: string; value: string }>) => {
     if (!config.customer_id) return;
 
     try {
@@ -907,6 +976,7 @@ export function MetronomeProvider({
         config.customer_id,
         threshold,
         apiKey, // This can be undefined, and backend will use env var
+        groupValues,
       );
 
       if (response.status === "success") {
@@ -920,7 +990,7 @@ export function MetronomeProvider({
     }
   }, [config.customer_id, apiKey, fetchAlerts]);
 
-  const createCommitPercentageAlert = useCallback(async (percentage: number) => {
+  const createCommitPercentageAlert = useCallback(async (percentage: number, groupValues?: Array<{ key: string; value: string }>) => {
     if (!config.customer_id) return;
 
     try {
@@ -928,6 +998,7 @@ export function MetronomeProvider({
         config.customer_id,
         100-percentage,
         apiKey, // This can be undefined, and backend will use env var
+        groupValues,
       );
 
       if (response.status === "success") {
@@ -1047,10 +1118,12 @@ export function MetronomeProvider({
     fetchCurrentSpend,
     fetchAlerts,
     fetchInvoices,
+    downloadInvoicePdf,
     fetchRawUsageData,
     fetchCustomerDetails,
     fetchContractDetails,
     updateSubscriptionQuantity,
+    fetchSubscriptionQuantityHistory,
     rechargeBalance,
     updateAutoRecharge,
     updateThresholdBalance,

@@ -507,7 +507,7 @@ export function UsageDataModal({
           <Button
             onClick={handleSendUsageData}
             disabled={!selectedMetricId || isLoading || isSending || (mode === "correct" && !selectedDate)}
-            className="w-full sm:w-auto"
+            className="w-full sm:w-auto bg-green-800 hover:bg-green-900 text-white border-0"
           >
             {isSending ? (
               <>

@@ -46,6 +46,7 @@ function fillMissingDays(data: Array<{date: string, value: number, fullDate: str
     } else {
       // Add missing day with 0 value
       filledData.push({
+        // Display in UTC timezone to match Metronome
         date: currentDate.toLocaleDateString("en-US", { 
           month: "short", 
           day: "numeric",
@@ -76,6 +77,7 @@ export function UsageChart({ data, metricName, totalValue, color = "#3b82f6" }: 
     try {
       const date = new Date(timestamp);
       if (!isNaN(date.getTime())) {
+        // Display in UTC timezone to match Metronome
         dateStr = date.toLocaleDateString("en-US", { 
           month: "short", 
           day: "numeric",

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { CustomerProvider, useCustomer } from "@/contexts/customer-context";
 import { MetronomeProvider, useMetronome } from "@/hooks/use-metronome-config";
 import { Balance } from "@/components/dashboard/balance";
@@ -56,29 +57,6 @@ function DarkModeToggle() {
   );
 }
 
-// Simple Refresh Button Component (doesn't use Metronome context)
-function SimpleRefreshButton() {
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    // Simply reload the page to refresh all data
-    window.location.reload();
-  };
-
-  return (
-    <button
-      onClick={handleRefresh}
-      disabled={isRefreshing}
-      className="flex items-center space-x-2 px-3 py-2 bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 transition-all duration-200 text-sm font-medium"
-      title="Refresh all data"
-    >
-      <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-      <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
-    </button>
-  );
-}
-
 // Refresh Button Component (uses Metronome context - for use inside MetronomeProvider)
 function RefreshButton() {
   const { 
@@ -90,6 +68,7 @@ function RefreshButton() {
     fetchRawUsageData,
     fetchCustomerDetails,
     fetchContractDetails,
+    fetchUsageEmbeddable,
     config,
     loadingStates 
   } = useMetronome();
@@ -106,6 +85,7 @@ function RefreshButton() {
         fetchAlerts(),
         fetchInvoices(true), // Force refresh to bypass cache
         fetchRawUsageData(true), // Force refresh to bypass cache
+        fetchUsageEmbeddable(true), // Force refresh to bypass cache
       ];
 
       // Always add fetchCustomerDetails if customer_id is available
@@ -133,7 +113,7 @@ function RefreshButton() {
     <button
       onClick={handleRefresh}
       disabled={isRefreshing || isAnyLoading}
-      className="flex items-center space-x-2 px-3 py-2 bg-white/80 hover:bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:text-gray-900 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+      className="flex items-center space-x-2 px-3 py-2 bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 transition-all duration-200 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
       title="Refresh all data"
     >
       <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -144,10 +124,27 @@ function RefreshButton() {
 
 
 // Component to handle customer and contract selection and fetch their details
-function CustomerAndContractHandler({ children }: { children: React.ReactNode }) {
+function CustomerAndContractHandler({ children, refreshButtonContainer }: { children: React.ReactNode; refreshButtonContainer?: HTMLElement | null }) {
   // The automatic data loading in use-metronome-config handles fetching details
   // No need for redundant useEffect calls here
-  return <>{children}</>;
+  const [container, setContainer] = useState<HTMLElement | null>(refreshButtonContainer || null);
+  
+  useEffect(() => {
+    // Update container when ref becomes available
+    if (refreshButtonContainer) {
+      setContainer(refreshButtonContainer);
+    }
+  }, [refreshButtonContainer]);
+  
+  // Render refresh button in header if container is provided
+  const refreshButton = container ? createPortal(<RefreshButton />, container) : null;
+  
+  return (
+    <>
+      {refreshButton}
+      {children}
+    </>
+  );
 }
 
 
@@ -191,6 +188,7 @@ function DashboardContent() {
   const [businessName, setBusinessName] = useState(DEFAULT_BUSINESS_NAME);
   const [rechargeProductId, setRechargeProductId] = useState<string>("");
   const [activeTab, setActiveTab] = useState("billing");
+  const refreshButtonContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Load settings from localStorage on mount
@@ -256,7 +254,18 @@ function DashboardContent() {
             <div className="flex items-center space-x-3">
               <CustomerSelector />
               <ContractSelector />
-              <SimpleRefreshButton />
+              <div ref={refreshButtonContainerRef}>
+                {!selectedCustomer && (
+                  <button
+                    disabled
+                    className="flex items-center space-x-2 px-3 py-2 bg-white/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-400 dark:text-gray-500 text-sm font-medium opacity-50 cursor-not-allowed"
+                    title="Select a customer to enable refresh"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    <span>Refresh</span>
+                  </button>
+                )}
+              </div>
               <DarkModeToggle />
               <SettingsModal 
                 onApiKeyChange={handleApiKeyChange}
@@ -302,7 +311,7 @@ function DashboardContent() {
             apiKey={apiKey}
             rechargeProductId={rechargeProductId}
           >
-            <CustomerAndContractHandler>
+            <CustomerAndContractHandler refreshButtonContainer={refreshButtonContainerRef.current}>
               <div className="container mx-auto px-6 py-8">
                 {/* Tab Navigation */}
                 <div className="mb-8">

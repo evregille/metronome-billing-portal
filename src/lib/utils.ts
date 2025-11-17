@@ -50,14 +50,77 @@ export function formatCurrency(amount: number | string, currency_name: string = 
   return (symbol) ? `${symbol}${value}` : `${value} ${currency_name}`;
 }
 
+/**
+ * Formats a date for display in UTC timezone (to match Metronome)
+ * @param input - Date string (ISO format from Metronome/UTC) or timestamp
+ * @returns Formatted date string in UTC timezone
+ */
 export function formatDate(input: string | number): string {
-  const date = new Date(input);
+  if (!input) return '';
+  
+  // Ensure the date is parsed correctly
+  // If it's already an ISO string with time, use it directly
+  // If it's just a date string, ensure it's treated as UTC
+  let date: Date;
+  if (typeof input === 'string') {
+    // If it's an ISO string (contains T and Z), parse directly
+    if (input.includes('T') || input.includes('Z')) {
+      date = new Date(input);
+    } else {
+      // If it's just a date string (YYYY-MM-DD), treat as UTC midnight
+      date = new Date(input + 'T00:00:00Z');
+    }
+  } else {
+    date = new Date(input);
+  }
+  
+  // Check if date is valid
+  if (isNaN(date.getTime())) {
+    console.warn('Invalid date:', input);
+    return '';
+  }
+  
+  // Format in UTC timezone to match Metronome
   return date.toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
     timeZone: "UTC"
   });
+}
+
+/**
+ * Converts a date string (YYYY-MM-DD) selected by user to UTC midnight ISO string
+ * The date is interpreted as UTC - e.g., "2025-11-15" becomes "2025-11-15T00:00:00.000Z"
+ * Used when sending dates to Metronome API
+ * @param dateString - Date string in YYYY-MM-DD format (interpreted as UTC)
+ * @returns ISO string in UTC (YYYY-MM-DDTHH:mm:ss.sssZ)
+ */
+export function localDateToUTC(dateString: string): string {
+  if (!dateString) return '';
+  
+  // Interpret the date as UTC midnight directly
+  // User selects "2025-11-15" (in UTC) -> we send "2025-11-15T00:00:00.000Z" to Metronome
+  return `${dateString}T00:00:00.000Z`;
+}
+
+/**
+ * Converts a UTC ISO string to UTC date string (YYYY-MM-DD)
+ * Used when displaying dates from Metronome API in date inputs
+ * @param utcIsoString - ISO string in UTC
+ * @returns Date string in YYYY-MM-DD format (UTC)
+ */
+export function utcToLocalDate(utcIsoString: string): string {
+  if (!utcIsoString) return '';
+  
+  const date = new Date(utcIsoString);
+  
+  // Get UTC date components (to match Metronome)
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}`;
 }
 
 export function nFormatter(num: number, digits?: number) {
